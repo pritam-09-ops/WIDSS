@@ -1,6 +1,6 @@
 # Contributing to WIDSS
 
-Thank you for considering a contribution to WIDSS! 🎉  
+Thank you for your interest in contributing to WIDSS! 🎉  
 This document explains how to set up your development environment, follow our code standards, and submit a pull request.
 
 ---
@@ -9,12 +9,14 @@ This document explains how to set up your development environment, follow our co
 
 - [Fork & Clone](#fork--clone)
 - [Development Environment](#development-environment)
+- [Types of Contributions](#types-of-contributions)
 - [Code Style](#code-style)
 - [Type Hints & Docstrings](#type-hints--docstrings)
 - [Testing](#testing)
 - [Commit Messages](#commit-messages)
 - [Pull Request Process](#pull-request-process)
 - [Bug Reports & Feature Requests](#bug-reports--feature-requests)
+- [Code of Conduct](#code-of-conduct)
 
 ---
 
@@ -38,6 +40,8 @@ This document explains how to set up your development environment, follow our co
 
    ```bash
    git checkout -b feature/my-awesome-feature
+   # or for bug fixes:
+   git checkout -b bugfix/issue-description
    ```
 
 ---
@@ -57,13 +61,29 @@ This installs:
 
 - Core: `numpy`, `pandas`
 - ML backend: `tensorflow`
-- Dev tools: `pytest`, `black`, `flake8`, `isort`, `mypy`, `coverage`
+- Dev tools: `pytest`, `pytest-cov`, `black`, `flake8`, `isort`, `mypy`
+
+---
+
+## Types of Contributions
+
+### Bug Fixes
+Submit a PR that includes a test that fails before the fix and passes after.
+
+### New Features
+Each PR should address one focused feature. For larger changes, open an issue first to align on direction.
+
+### Documentation
+Improvements to README.md, docstrings, or examples are always welcome. Update the Table of Contents if adding new sections.
+
+### Code Improvements
+Refactoring, performance optimizations (include benchmarks), or additional test coverage.
 
 ---
 
 ## Code Style
 
-We enforce consistent formatting with **Black** and **flake8**:
+We enforce consistent formatting with **Black**, **isort**, and **flake8**:
 
 ```bash
 # Auto-format
@@ -74,12 +94,16 @@ isort src/ tests/ scripts/
 
 # Lint
 flake8 src/ tests/ scripts/
+
+# Type check
+mypy src/
 ```
 
 Key rules:
 
-- Line length: **100** characters (Black default as configured in `pyproject.toml`)
+- Line length: **100** characters (as configured in `pyproject.toml`)
 - Maximum complexity: **10** (flake8)
+- Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/)
 - Two blank lines between top-level definitions
 - One blank line between methods inside a class
 
@@ -114,12 +138,6 @@ def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
 ```
 
-Run mypy for static type checking:
-
-```bash
-mypy src/
-```
-
 ---
 
 ## Testing
@@ -139,7 +157,7 @@ python -m pytest --cov=widss --cov-report=term-missing
 python -m pytest tests/test_evaluation.py -v
 ```
 
-**Minimum coverage target**: 80 % of new code.
+**Minimum coverage target**: 80% of new code.
 
 ---
 
@@ -177,12 +195,17 @@ test(simulation): increase coverage for regen drive mode
    git rebase upstream/main
    ```
 
-2. Push your branch and open a PR against `main`.
+2. Push your branch and open a PR against `main`:
+
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
 3. Fill in the pull request template (checklist auto-populated).
 4. Ensure all CI checks pass (tests + lint).
 5. Request a review from a maintainer.
 6. Address review comments and push updates to the same branch.
-7. A maintainer will squash-merge once approved.
+7. A maintainer will merge once approved.
 
 ### PR Checklist (quick reference)
 
@@ -197,7 +220,15 @@ test(simulation): increase coverage for regen drive mode
 
 ## Bug Reports & Feature Requests
 
-- **Bugs**: Use the [Bug Report](.github/ISSUE_TEMPLATE/bug_report.md) template. Include a minimal reproducible example, expected vs actual behaviour, and your environment details.
+- **Bugs**: Use the [Bug Report](.github/ISSUE_TEMPLATE/bug_report.md) template. Include a minimal reproducible example, expected vs actual behaviour, Python version, OS, and stack trace.
 - **Features**: Use the [Feature Request](.github/ISSUE_TEMPLATE/feature_request.md) template. Describe the use case and alternatives you considered.
+
+---
+
+## Code of Conduct
+
+Be respectful and inclusive. We welcome contributions from people of all backgrounds and experience levels. Harassment or discrimination of any kind is not tolerated.
+
+---
 
 Thank you for helping make WIDSS better! 🔋
