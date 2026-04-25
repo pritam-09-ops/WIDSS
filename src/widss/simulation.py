@@ -27,10 +27,10 @@ def generate_drive_cycle(duration_s: int = 3600, dt_s: float = 1.0, seed: int = 
     time_s = np.arange(n_steps) * dt_s
 
     current_a = np.zeros(n_steps, dtype=float)
-    i = 0
-    while i < n_steps:
+    step_idx = 0
+    while step_idx < n_steps:
         segment_len = int(rng.integers(5, 60))
-        segment_end = min(i + segment_len, n_steps)
+        segment_end = min(step_idx + segment_len, n_steps)
         mode = rng.choice(["idle", "cruise", "accel", "regen"], p=[0.2, 0.35, 0.3, 0.15])
         if mode == "idle":
             amp = 0.0
@@ -40,8 +40,8 @@ def generate_drive_cycle(duration_s: int = 3600, dt_s: float = 1.0, seed: int = 
             amp = float(rng.uniform(20.0, 80.0))
         else:
             amp = float(rng.uniform(-40.0, -5.0))
-        current_a[i:segment_end] = amp + rng.normal(0.0, 1.0, segment_end - i)
-        i = segment_end
+        current_a[step_idx:segment_end] = amp + rng.normal(0.0, 1.0, segment_end - step_idx)
+        step_idx = segment_end
 
     return time_s, current_a
 

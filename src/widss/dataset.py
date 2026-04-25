@@ -22,12 +22,12 @@ def build_sequences(
     target = frame[target_col].to_numpy(dtype=float)
     n = len(frame)
 
-    upper = n - window_size - horizon + 1
-    if upper <= 0:
+    max_start_idx = n - window_size - horizon + 1
+    if max_start_idx <= 0:
         raise ValueError("not enough rows to build sequences for given window_size and horizon")
 
     x, y = [], []
-    for start in range(upper):
+    for start in range(max_start_idx):
         end = start + window_size
         target_idx = end + horizon - 1
         x.append(values[start:end])

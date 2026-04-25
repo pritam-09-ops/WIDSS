@@ -15,16 +15,15 @@ AI-driven battery state estimation starter project focused on:
 
 ## Project structure
 
-- `/home/runner/work/WIDSS/WIDSS/src/widss/simulation.py` - drive cycle + battery state simulation
-- `/home/runner/work/WIDSS/WIDSS/src/widss/dataset.py` - windowed time-series dataset builder
-- `/home/runner/work/WIDSS/WIDSS/src/widss/model.py` - LSTM model construction helpers
-- `/home/runner/work/WIDSS/WIDSS/scripts/train_soc_lstm.py` - end-to-end training script
-- `/home/runner/work/WIDSS/WIDSS/tests/` - basic test coverage
+- `src/widss/simulation.py` - drive cycle + battery state simulation
+- `src/widss/dataset.py` - windowed time-series dataset builder
+- `src/widss/model.py` - LSTM model construction helpers
+- `scripts/train_soc_lstm.py` - end-to-end training script
+- `tests/` - basic test coverage
 
 ## Setup
 
 ```bash
-cd /home/runner/work/WIDSS/WIDSS
 python -m pip install -r requirements.txt
 ```
 
@@ -37,14 +36,12 @@ python -m pip install tensorflow
 ## Run tests
 
 ```bash
-cd /home/runner/work/WIDSS/WIDSS
 python -m pytest
 ```
 
 ## Train SOC LSTM
 
 ```bash
-cd /home/runner/work/WIDSS/WIDSS
 PYTHONPATH=src python scripts/train_soc_lstm.py --duration-s 7200 --window-size 30 --epochs 5
 ```
 
