@@ -5,6 +5,12 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+MIN_SEGMENT_STEPS = 5
+MAX_SEGMENT_STEPS = 60
+DRIVE_MODES = ("idle", "cruise", "accel", "regen")
+# Typical mixed EV usage profile: idle, steady cruise, acceleration bursts, and regenerative braking.
+DRIVE_MODE_PROBABILITIES = (0.2, 0.35, 0.3, 0.15)
+
 
 @dataclass(slots=True)
 class BatterySimulationConfig:
@@ -17,6 +23,7 @@ class BatterySimulationConfig:
 
 
 def generate_drive_cycle(duration_s: int = 3600, dt_s: float = 1.0, seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
+    """Generate a synthetic EV-like current profile over time."""
     if duration_s <= 0:
         raise ValueError("duration_s must be positive")
     if dt_s <= 0:
@@ -29,9 +36,9 @@ def generate_drive_cycle(duration_s: int = 3600, dt_s: float = 1.0, seed: int = 
     current_a = np.zeros(n_steps, dtype=float)
     step_idx = 0
     while step_idx < n_steps:
-        segment_len = int(rng.integers(5, 60))
+        segment_len = int(rng.integers(MIN_SEGMENT_STEPS, MAX_SEGMENT_STEPS))
         segment_end = min(step_idx + segment_len, n_steps)
-        mode = rng.choice(["idle", "cruise", "accel", "regen"], p=[0.2, 0.35, 0.3, 0.15])
+        mode = rng.choice(DRIVE_MODES, p=DRIVE_MODE_PROBABILITIES)
         if mode == "idle":
             amp = 0.0
         elif mode == "cruise":

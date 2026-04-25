@@ -9,3 +9,11 @@ def test_build_sequences_shape() -> None:
     assert x.shape[0] == y.shape[0]
     assert x.shape[1] == 10
     assert x.shape[2] == 2
+
+
+def test_build_sequences_respects_feature_order() -> None:
+    frame = build_dataset(duration_s=40, seed=3)
+    x, _ = build_sequences(frame, feature_cols=("voltage_v", "current_a"), window_size=5, horizon=1)
+
+    assert x[0, 0, 0] == frame.iloc[0]["voltage_v"]
+    assert x[0, 0, 1] == frame.iloc[0]["current_a"]
