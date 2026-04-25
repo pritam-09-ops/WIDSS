@@ -31,7 +31,7 @@ def generate_drive_cycle(duration_s: int = 3600, dt_s: float = 1.0, seed: int = 
         raise ValueError("dt_s must be positive")
 
     rng = np.random.default_rng(seed)
-    n_steps = int(duration_s / dt_s)
+    n_steps = int(np.ceil(duration_s / dt_s))
     time_s = np.arange(n_steps) * dt_s
 
     current_a = np.zeros(n_steps, dtype=float)
