@@ -1,3 +1,21 @@
+"""Train an LSTM model for SOC prediction on synthetic drive-cycle data.
+
+This script generates a synthetic EV drive cycle, builds sliding-window
+time-series sequences, trains a two-layer LSTM model, and saves the
+trained model and loss history to disk.
+
+Example:
+    Basic training run (2 hours of simulated data, 5 epochs)::
+
+        PYTHONPATH=src python scripts/train_soc_lstm.py
+
+    Longer run with custom output directory::
+
+        PYTHONPATH=src python scripts/train_soc_lstm.py \\
+            --duration-s 14400 --window-size 30 --epochs 20 \\
+            --output-dir runs/exp1
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -11,32 +29,102 @@ from widss.simulation import BatterySimulationConfig, build_dataset
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train an LSTM model for SOC prediction on synthetic drive-cycle data.")
-    parser.add_argument("--duration-s", type=int, default=7200)
-    parser.add_argument("--dt-s", type=float, default=1.0)
-    parser.add_argument("--window-size", type=int, default=30)
-    parser.add_argument("--epochs", type=int, default=5)
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--duration-s",
+        type=int,
+        default=7200,
+        metavar="SECONDS",
+        help="Length of the simulated drive cycle in seconds (default: 7200 = 2 h).",
+    )
+    parser.add_argument(
+        "--dt-s",
+        type=float,
+        default=1.0,
+        metavar="DT",
+        help="Simulation time-step in seconds (default: 1.0).",
+    )
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=30,
+        metavar="W",
+        help="Number of past time-steps fed to the LSTM (default: 30).",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Training epochs (default: 5).",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        metavar="B",
+        help="Mini-batch size (default: 64).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        metavar="S",
+        help="Random seed for reproducibility (default: 42).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("outputs"),
+        metavar="DIR",
+        help="Directory where the model and history are saved (default: outputs/).",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+
+    print("⚡ WIDSS – SOC LSTM Training")
+    print("=" * 42)
+
     if not tensorflow_available():
-        print("TensorFlow is not installed. Install TensorFlow first to run LSTM training.")
+        print(
+            "❌  TensorFlow is not installed.\n"
+            "    Install it with:  pip install tensorflow\n"
+            "    or:               pip install 'widss[tensorflow]'"
+        )
         return 1
 
+    # ------------------------------------------------------------------
+    # 1. Generate synthetic drive cycle
+    # ------------------------------------------------------------------
+    print(f"🔋 Generating {args.duration_s // 3600:.1f} h drive cycle  (seed={args.seed}) …")
     cfg = BatterySimulationConfig(dt_s=args.dt_s)
     frame = build_dataset(duration_s=args.duration_s, config=cfg, seed=args.seed)
+    print(f"   → {len(frame):,} time-steps  |  SOC range [{frame['soc'].min():.3f}, {frame['soc'].max():.3f}]")
+
+    # ------------------------------------------------------------------
+    # 2. Build sliding-window sequences
+    # ------------------------------------------------------------------
+    print(f"🪟  Building sequences  (window={args.window_size}) …")
     x, y = build_sequences(frame=frame, window_size=args.window_size)
 
     split_idx = int(0.8 * len(x))
     x_train, x_val = x[:split_idx], x[split_idx:]
     y_train, y_val = y[:split_idx], y[split_idx:]
+    print(f"   → train: {len(x_train):,}  |  val: {len(x_val):,}  |  features: {x.shape[2]}")
 
+    # ------------------------------------------------------------------
+    # 3. Build and train model
+    # ------------------------------------------------------------------
+    print(f"🧠 Building LSTM model …")
     model = build_lstm_soc_model(window_size=x.shape[1], feature_count=x.shape[2])
+
+    print(f"🚀 Training for {args.epochs} epoch(s)  (batch={args.batch_size}) …")
     history = model.fit(
         x_train,
         y_train,
@@ -46,13 +134,25 @@ def main() -> int:
         verbose=1,
     )
 
+    # ------------------------------------------------------------------
+    # 4. Save artifacts
+    # ------------------------------------------------------------------
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    model.save(args.output_dir / "soc_lstm.keras")
-    np.save(args.output_dir / "history_loss.npy", np.asarray(history.history.get("loss", []), dtype=float))
+    model_path = args.output_dir / "soc_lstm.keras"
+    history_path = args.output_dir / "history_loss.npy"
 
-    print(f"Saved model and history to: {args.output_dir.resolve()}")
+    model.save(model_path)
+    np.save(history_path, np.asarray(history.history.get("loss", []), dtype=float))
+
+    final_val_loss = history.history.get("val_loss", [float("nan")])[-1]
+    print()
+    print("✅ Done!")
+    print(f"   Model  → {model_path.resolve()}")
+    print(f"   History → {history_path.resolve()}")
+    print(f"   Final val loss: {final_val_loss:.6f}")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
