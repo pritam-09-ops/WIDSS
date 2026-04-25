@@ -10,7 +10,7 @@ def test_build_dataset_has_expected_columns_and_soc_bounds() -> None:
     assert len(frame) == 300
 
 
-def test_build_dataset_uses_ceil_for_non_divisible_duration_and_dt() -> None:
+def test_build_dataset_ceiling_steps() -> None:
     frame = build_dataset(duration_s=10, config=BatterySimulationConfig(dt_s=3.0), seed=1)
 
     assert len(frame) == 4
