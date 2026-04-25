@@ -3,7 +3,7 @@
 AI-driven battery state estimation starter project focused on:
 
 - **SOC (State of Charge)** prediction under dynamic drive cycles
-- **SOH (State of Health)** future-ready structure for cycle-aging extensions
+- **SOH (State of Health)** is planned next; current scaffold already separates simulation/data/model layers so cycle-aging pipelines can be added cleanly
 
 ## What this repo now includes
 

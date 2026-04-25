@@ -26,7 +26,7 @@ def main() -> int:
     args = parse_args()
     if not tensorflow_available():
         print("TensorFlow is not installed. Install TensorFlow first to run LSTM training.")
-        return 0
+        return 1
 
     cfg = BatterySimulationConfig(dt_s=args.dt_s)
     frame = build_dataset(duration_s=args.duration_s, config=cfg, seed=args.seed)
