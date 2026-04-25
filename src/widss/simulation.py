@@ -10,6 +10,7 @@ MAX_SEGMENT_STEPS = 60
 DRIVE_MODES = ("idle", "cruise", "accel", "regen")
 # Typical mixed EV usage profile: idle, steady cruise, acceleration bursts, and regenerative braking.
 DRIVE_MODE_PROBABILITIES = (0.2, 0.35, 0.3, 0.15)
+SECONDS_PER_HOUR = 3600.0
 
 
 @dataclass(slots=True)
@@ -62,7 +63,7 @@ def simulate_battery_states(current_a: np.ndarray, config: BatterySimulationConf
 
     soc_prev = float(np.clip(config.soc_init, 0.0, 1.0))
     for idx, cur in enumerate(current_a):
-        delta_soc = -(cur * config.dt_s) / (config.capacity_ah * 3600.0)
+        delta_soc = -(cur * config.dt_s) / (config.capacity_ah * SECONDS_PER_HOUR)
         soc_now = float(np.clip(soc_prev + delta_soc, 0.0, 1.0))
         ocv = config.ocv_min_v + (config.ocv_max_v - config.ocv_min_v) * soc_now
         terminal_v = ocv - cur * config.internal_resistance_ohm
