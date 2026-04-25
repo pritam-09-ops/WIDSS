@@ -26,11 +26,13 @@ def build_sequences(
     if max_start_idx <= 0:
         raise ValueError("not enough rows to build sequences for given window_size and horizon")
 
-    x, y = [], []
+    num_features = len(feature_cols)
+    x = np.empty((max_start_idx, window_size, num_features), dtype=float)
+    y = np.empty((max_start_idx,), dtype=float)
     for start in range(max_start_idx):
         end = start + window_size
         target_idx = end + horizon - 1
-        x.append(values[start:end])
-        y.append(target[target_idx])
+        x[start] = values[start:end]
+        y[start] = target[target_idx]
 
-    return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    return x, y
