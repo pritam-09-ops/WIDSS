@@ -15,79 +15,85 @@
 
 </div>
 
-WIDSS combines physics-based simulation with deep learning (LSTM networks) to estimate **State of Charge (SOC)** — i.e., how much charge is left in a battery — in real time. It's designed to be readable and extensible, whether you're a researcher, a student building your first ML project, or an engineer integrating SOC estimation into a real product.
+## What is WIDSS?
 
-> **State of Health (SOH)** — long-term degradation prediction — is currently in development.
+WIDSS combines physics-based battery simulation with deep learning (LSTM networks) to estimate **State of Charge (SOC)** — basically, how much juice is left in your battery — in real time. Think of it as a smarter fuel gauge for electric vehicles.
 
----
+The framework is built to be modular and extensible, so you can use just the physics simulator, integrate it with your own ML models, or leverage the full LSTM pipeline. No vendor lock-in, no black boxes.
 
-## Who is this for?
-
-- **EV engineers** who need a reliable, testable SOC estimation baseline
-- **Researchers** exploring physics-informed machine learning for batteries
-- **Students** learning about battery management systems (BMS) or time-series ML
-- **Hobbyists** building DIY battery packs and wanting smarter monitoring
-
-No prior deep learning knowledge is required. The ML parts are documented, and the simulation works independently of TensorFlow if you don't need model training.
+> **State of Health (SOH)** — predicting long-term battery degradation — is currently being developed.
 
 ---
 
-## Table of Contents
+## Who Should Care About This?
+
+- **EV Engineers** – You need a reliable SOC baseline that you can actually test and trust
+- **Battery Researchers** – You want to explore how physics and machine learning can work together  
+- **Students & Learners** – You're interested in battery management systems (BMS) or time-series ML
+- **DIY Battery Enthusiasts** – You're building your own battery pack and want smarter monitoring
+
+Here's the thing: you don't need to be a deep learning expert to use this. The ML parts are well-documented, and the simulator runs perfectly fine without TensorFlow if you're just interested in the physics side.
+
+---
+
+## Quick Navigation
 
 1. [Features](#-features)
-2. [How it Works](#how-it-works)
-3. [Installation](#-quick-start)
-4. [Quick Start](#-quick-start)
-5. [Core Concepts](#core-concepts)
-6. [Module Reference](#-module-reference)
-7. [Battery Configuration](#️-configuration)
-8. [Training a Model](#training-a-model)
-9. [Project Structure](#-project-structure)
-10. [Benchmarks](#-benchmarks)
-11. [Roadmap](#️-roadmap)
-12. [Contributing](#-contributing)
-13. [FAQ](#faq)
-14. [License](#-license)
+2. [How It Actually Works](#how-it-actually-works)
+3. [Getting Started](#-getting-started)
+4. [Understanding the Concepts](#understanding-the-concepts)
+5. [API Reference](#-module-reference)
+6. [Configuring Your Battery](#️-configuration)
+7. [Training Models](#training-a-model)
+8. [Project Layout](#-project-structure)
+9. [Performance](#-benchmarks)
+10. [What's Next](#️-roadmap)
+11. [Want to Contribute?](#-contributing)
+12. [Questions?](#faq)
+13. [License](#-license)
 
 ---
 
 ## ✨ Features
 
-| Feature | Status |
+| What You Get | Status |
 |---|---|
-| Synthetic EV drive-cycle generator (idle / cruise / accel / regen) | ✅ |
-| Physics-inspired SOC & terminal-voltage simulation | ✅ |
-| Sliding-window time-series dataset builder | ✅ |
-| LSTM model construction & training (TensorFlow) | ✅ |
-| RMSE / MAE / MAPE evaluation metrics | ✅ |
-| Multi-version CI (Python 3.10 – 3.12) | ✅ |
-| SOH cycle-aging pipeline | 🚧 |
-| PyBaMM electrochemical backend | 📋 |
-| Transformer / physics-informed baselines | 📋 |
+| Realistic EV drive-cycle simulator (idle, cruise, acceleration, regen braking) | ✅ |
+| Physics-based battery simulation (SOC & voltage) | ✅ |
+| Sliding-window dataset builder for sequence models | ✅ |
+| LSTM neural network (TensorFlow/Keras) | ✅ |
+| Standard metrics (RMSE, MAE, MAPE) | ✅ |
+| Multi-Python support (3.10, 3.11, 3.12) with CI/CD | ✅ |
+| Battery degradation prediction (SOH) | 🚧 In the works |
+| PyBaMM electrochemistry integration | 📋 Coming soon |
+| Transformer & physics-informed baselines | 📋 On the radar |
 
 ---
 
-## How it Works
+## How It Actually Works
 
-WIDSS has three main stages:
+WIDSS is a three-stage pipeline:
 
 ```
-Raw Parameters → Physics Simulation → Windowed Sequences → LSTM Model → SOC Prediction
+Your Battery → Physics Simulation → Windowed Sequences → LSTM → SOC Prediction
 ```
 
-1. **Simulation** (`simulation.py`) — Generates realistic current/voltage/SOC timeseries using an Equivalent Circuit Model (ECM). You configure the battery (capacity, resistance, initial SOC) and a synthetic drive cycle is produced.
+**Stage 1: Simulation** (`simulation.py`)  
+We model your battery using an Equivalent Circuit Model (ECM) — basically, a voltage source with some internal resistance. Feed in battery specs and a realistic drive cycle, out comes current/voltage/SOC timeseries.
 
-2. **Dataset Builder** (`dataset.py`) — Converts the timeseries into sliding windows suitable for sequence models. Each window covers N timesteps of voltage and current, and the label is the SOC one step ahead.
+**Stage 2: Dataset Builder** (`dataset.py`)  
+We chop up that timeseries into sliding windows. Each window is 30 (or however many) timesteps of voltage and current, with a label: the SOC one step ahead. This is how we teach the neural network.
 
-3. **LSTM Model** (`model.py`) — A recurrent neural network trained on those windows. It learns temporal patterns in how voltage and current relate to SOC over time.
+**Stage 3: LSTM Model** (`model.py`)  
+A recurrent neural network that learns the temporal patterns between voltage, current, and SOC. It "remembers" the recent history to make better predictions.
 
-This architecture keeps the stages decoupled. You can swap the physics model, change the ML architecture, or bring in real sensor data — without rewriting everything.
+Why keep them separate? Because you can mix and match. Use different physics models, swap in your own ML architecture, or feed in real sensor data — no need to rewrite everything.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
-### Prerequisites
+### What You Need
 
 - Python 3.10, 3.11, or 3.12
 - pip ≥ 21
@@ -95,26 +101,27 @@ This architecture keeps the stages decoupled. You can swap the physics model, ch
 ### Installation
 
 ```bash
-# Clone the repository
+# Get the code
 git clone https://github.com/pritam-09-ops/WIDSS.git
 cd WIDSS
 
-# Install core dependencies
+# Install the core package
 pip install -e .
 
-# Optional: TensorFlow backend for LSTM training
+# Want to train LSTM models? Add TensorFlow
 pip install -e ".[tensorflow]"
 
-# Optional: full development toolchain
+# Going all-in? Get everything (dev tools, testing, etc.)
 pip install -e ".[all]"
 ```
 
-### Generate a simulation
+### Try It Out (5 Minutes)
 
+**Simulate some battery data:**
 ```python
 from widss.simulation import build_dataset
 
-# Simulate 1 hour of EV driving (3600 seconds)
+# Simulate 1 hour of realistic EV driving
 df = build_dataset(duration_s=3600, seed=42)
 print(df.head())
 #    time_s  current_a  voltage_v       soc
@@ -123,8 +130,7 @@ print(df.head())
 # ...
 ```
 
-### Build ML sequences
-
+**Convert to ML sequences:**
 ```python
 from widss.dataset import build_sequences
 
@@ -132,43 +138,43 @@ x, y = build_sequences(df, window_size=30)
 print(x.shape, y.shape)  # (3539, 30, 2)  (3539,)
 ```
 
-### Train a model
-
+**Train an LSTM model:**
 ```bash
-PYTHONPATH=src python scripts/train_soc_lstm.py \
+python scripts/train_soc_lstm.py \
     --duration-s 7200 --window-size 30 --epochs 10 \
     --output-dir runs/first_run
 ```
 
-### Run tests
-
+**Run the test suite:**
 ```bash
 python -m pytest
 ```
 
 ---
 
-## Core Concepts
+## Understanding the Concepts
 
 ### State of Charge (SOC)
 
-SOC is the fraction of usable energy remaining in a battery, from 0.0 (empty) to 1.0 (full). Accurate SOC estimation is critical for range prediction and battery protection.
+SOC is the percentage of usable energy left in the battery: 0.0 means empty, 1.0 means fully charged. Get this wrong and your range prediction is garbage.
 
-The standard approach — **Coulomb counting** — integrates current over time. It's simple but drifts over time due to sensor noise and doesn't account for temperature or aging. WIDSS uses an LSTM to learn a data-driven correction on top of coulomb counting, which handles nonlinearities and is more robust over long drives.
+Traditionally, people use **Coulomb counting** — you just integrate the current over time. Sounds simple, right? But it drifts like crazy due to sensor noise and temperature changes, and it can't account for battery aging. 
 
-### Equivalent Circuit Model (ECM)
+WIDSS uses an LSTM to learn the real relationship between voltage, current, and SOC. It picks up on patterns that raw integration misses.
 
-The physics simulation uses a simple ECM: the battery is modeled as an ideal voltage source (open-circuit voltage, OCV) in series with an internal resistance. Terminal voltage is:
+### The Battery Model (Equivalent Circuit)
+
+We model the battery as a voltage source (the "open-circuit voltage" or OCV) in series with internal resistance. In equation form:
 
 ```
 V_terminal = OCV(SOC) - I × R_internal
 ```
 
-The OCV-SOC relationship is approximated by a linear function between `ocv_min_v` and `ocv_max_v`.
+Simple? Yes. Surprisingly accurate for most practical scenarios? Also yes. The OCV varies with SOC (higher charge = higher voltage), which we approximate with a linear function.
 
-### Drive Cycle
+### Drive Cycles
 
-Current draw is generated by a synthetic drive cycle: a mix of acceleration bursts, constant-speed cruising, regenerative braking (negative current), and idle periods. The pattern is seeded so results are reproducible.
+We generate realistic current profiles: mix of acceleration bursts, steady cruising, regenerative braking (when the car slows down and charges the battery), and idle time. The pattern is deterministic (same seed = same cycle), so results are reproducible.
 
 ---
 
@@ -176,42 +182,59 @@ Current draw is generated by a synthetic drive cycle: a mix of acceleration burs
 
 ### `widss.simulation`
 
-Generates synthetic EV current profiles and simulates battery physics.
+Generates synthetic EV driving patterns and simulates your battery's electrical behavior.
 
 ```python
 from widss.simulation import BatterySimulationConfig, build_dataset
 
-cfg = BatterySimulationConfig(capacity_ah=60.0, soc_init=0.95, dt_s=1.0)
+# Define your battery
+cfg = BatterySimulationConfig(
+    capacity_ah=60.0,      # 60 amp-hour pack
+    soc_init=0.95,         # Start at 95% charge
+    dt_s=1.0               # 1-second timesteps
+)
+
+# Get a DataFrame with time, current, voltage, SOC
 frame = build_dataset(duration_s=3600, config=cfg, seed=42)
 ```
 
 ### `widss.dataset`
 
-Builds sliding-window sequences for supervised deep learning.
+Converts raw timeseries into training sequences for neural networks.
 
 ```python
 from widss.dataset import build_sequences
 
-# x: (num_windows, window_size, num_features)
-# y: (num_windows,)  ← SOC at the next timestep
-x, y = build_sequences(frame, feature_cols=("voltage_v", "current_a"), window_size=30)
+# Inputs: voltage_v and current_a over 30 timesteps
+# Outputs: SOC at the next timestep
+x, y = build_sequences(
+    frame, 
+    feature_cols=("voltage_v", "current_a"), 
+    window_size=30
+)
+# x shape: (num_windows, 30, 2)
+# y shape: (num_windows,)
 ```
 
 ### `widss.model`
 
-LSTM model factory powered by TensorFlow/Keras.
+Build and use LSTM models (requires TensorFlow).
 
 ```python
 from widss.model import build_lstm_soc_model, tensorflow_available
 
 if tensorflow_available():
-    model = build_lstm_soc_model(window_size=30, feature_count=2, units=64)
+    model = build_lstm_soc_model(
+        window_size=30, 
+        feature_count=2, 
+        units=64  # Hidden layer size
+    )
     model.summary()
 ```
 
 ### `widss.evaluation`
 
-Standard regression metrics for model assessment.
+Evaluate your model with standard ML metrics.
 
 ```python
 import numpy as np
@@ -220,9 +243,9 @@ from widss.evaluation import rmse, mae, mape
 y_true = np.array([0.9, 0.8, 0.7, 0.6])
 y_pred = np.array([0.88, 0.81, 0.69, 0.62])
 
-print(f"RMSE : {rmse(y_true, y_pred):.4f}")
-print(f"MAE  : {mae(y_true, y_pred):.4f}")
-print(f"MAPE : {mape(y_true, y_pred):.2f} %")
+print(f"RMSE: {rmse(y_true, y_pred):.4f}")
+print(f"MAE:  {mae(y_true, y_pred):.4f}")
+print(f"MAPE: {mape(y_true, y_pred):.2f}%")
 ```
 
 ---
@@ -231,53 +254,61 @@ print(f"MAPE : {mape(y_true, y_pred):.2f} %")
 
 ### Battery Parameters (`BatterySimulationConfig`)
 
-| Parameter | Description | Default | Typical range |
+| Parameter | What it means | Default | Typical range |
 |---|---|---|---|
-| `capacity_ah` | Cell capacity in amp-hours | `60.0` | 40–100 Ah for EV packs |
-| `soc_init` | Initial state of charge (0–1) | `0.95` | 0.5–0.95 |
-| `dt_s` | Simulation time-step (seconds) | `1.0` | 0.1–5.0 |
-| `internal_resistance_ohm` | Internal resistance (Ω) | `0.02` | 0.01–0.1 Ω |
-| `ocv_min_v` | Minimum open-circuit voltage (V) | `3.0` | 2.5–3.2 V (Li-ion) |
-| `ocv_max_v` | Maximum open-circuit voltage (V) | `4.2` | 4.0–4.3 V (Li-ion) |
+| `capacity_ah` | Total battery capacity | `60.0 Ah` | 40–100 Ah for EV packs |
+| `soc_init` | Starting charge level | `0.95` | 0.5–0.95 |
+| `dt_s` | Simulation timestep | `1.0 s` | 0.1–5.0 s |
+| `internal_resistance_ohm` | Battery resistance | `0.02 Ω` | 0.01–0.1 Ω |
+| `ocv_min_v` | Minimum voltage (empty) | `3.0 V` | 2.5–3.2 V (Li-ion) |
+| `ocv_max_v` | Maximum voltage (full) | `4.2 V` | 4.0–4.3 V (Li-ion) |
 
-### Training Parameters (`train_soc_lstm.py` CLI)
+### Training Parameters
 
-| Flag | Default | Description |
+```bash
+python scripts/train_soc_lstm.py [options]
+```
+
+| Option | Default | What it does |
 |---|---|---|
-| `--duration-s` | `7200` | Drive-cycle length (seconds) |
-| `--dt-s` | `1.0` | Simulation time-step |
-| `--window-size` | `30` | LSTM input window width |
-| `--epochs` | `5` | Training epochs |
-| `--batch-size` | `64` | Mini-batch size |
-| `--seed` | `42` | Random seed |
-| `--output-dir` | `outputs/` | Artifact save path |
+| `--duration-s` | `7200` | How long to simulate (seconds) |
+| `--dt-s` | `1.0` | Timestep size |
+| `--window-size` | `30` | Input window length for LSTM |
+| `--epochs` | `5` | Training rounds |
+| `--batch-size` | `64` | Samples per gradient update |
+| `--seed` | `42` | Random seed for reproducibility |
+| `--output-dir` | `outputs/` | Where to save results |
 
-### LSTM Model (`build_lstm_soc_model`)
+### LSTM Tuning
 
-| Parameter | Default | Description |
+| Parameter | Default | Notes |
 |---|---|---|
-| `units` | `64` | LSTM hidden units |
-| `learning_rate` | `1e-3` | Adam optimizer LR |
+| `units` | `64` | Number of LSTM cells. 64 is solid, 128 is better but slower |
+| `learning_rate` | `1e-3` | Adam optimizer learning rate |
 
 ---
 
 ## Training a Model
 
+Here are some practical examples:
+
 ```bash
-# Minimal run (quick test)
+# Quick test run (5 minutes)
 python scripts/train_soc_lstm.py --duration-s 300 --epochs 5
 
 # Standard training
 python scripts/train_soc_lstm.py --duration-s 7200 --epochs 10
 
-# Longer training with larger windows
+# Serious training with more data and parameters
 python scripts/train_soc_lstm.py \
   --duration-s 14400 --epochs 20 --batch-size 32 --window-size 60
 ```
 
-**Choosing `units`:** 64 is a good default. 128 gives slightly better accuracy but trains slower. Going above 128 rarely helps without more data.
+**How to choose `units`?**  
+Start with 64. If your MAPE is still above 5%, bump it to 128. Going higher rarely helps unless you have tons of data.
 
-**Choosing `window_size`:** Longer windows give the model more context but make training slower. 30–60 seconds is a reasonable range for 1 Hz data.
+**How to choose `window_size`?**  
+Bigger windows = more context for the model, but slower training. For 1 Hz data (1-second timesteps), 30–60 seconds is the sweet spot.
 
 ---
 
@@ -286,92 +317,93 @@ python scripts/train_soc_lstm.py \
 ```
 WIDSS/
 ├── src/widss/
-│   ├── __init__.py        ← Package metadata & version
-│   ├── simulation.py      ← Drive-cycle generator & battery physics
-│   ├── dataset.py         ← Sliding-window sequence builder
-│   ├── model.py           ← LSTM factory (TensorFlow)
-│   └── evaluation.py      ← RMSE / MAE / MAPE metrics
+│   ├── __init__.py              # Package info & version
+│   ├── simulation.py            # Drive cycle & battery physics
+│   ├── dataset.py               # Windowing & sequence building
+│   ├── model.py                 # LSTM architecture
+│   └── evaluation.py            # Metrics (RMSE, MAE, MAPE)
 ├── tests/
-│   ├── test_simulation.py
-│   ├── test_dataset.py
-│   ├── test_model.py
-│   └── test_evaluation.py
+│   ├── test_simulation.py       # Battery simulator tests
+│   ├── test_dataset.py          # Dataset builder tests
+│   ├── test_model.py            # Model tests
+│   └── test_evaluation.py       # Metrics tests
 ├── scripts/
-│   └── train_soc_lstm.py  ← End-to-end training entry point
+│   └── train_soc_lstm.py        # End-to-end training script
 ├── .github/
 │   ├── workflows/
-│   │   ├── tests.yml      ← CI: pytest + coverage
-│   │   └── lint.yml       ← CI: black + flake8 + isort + mypy
+│   │   ├── tests.yml            # Runs pytest automatically
+│   │   └── lint.yml             # Checks code quality
 │   └── ISSUE_TEMPLATE/
-├── pyproject.toml
-├── CONTRIBUTING.md
-├── CHANGELOG.md
-└── LICENSE
+├── pyproject.toml               # Project configuration
+├── CONTRIBUTING.md              # Contributing guidelines
+├── CHANGELOG.md                 # Version history
+└── LICENSE                      # MIT License
 ```
 
 ---
 
-## 📊 Benchmarks
+## 📊 Performance
 
-Evaluated on synthetic data (7200 s, 60 Ah Li-ion battery, seed=42):
+We've tested on synthetic battery data (2 hours of driving, 60 Ah Li-ion):
 
-| Model | Mean SOC Error | Inference Speed | Model Size |
+| Model | Avg Error | Speed | Model Size |
 |---|---|---|---|
-| LSTM (64 units) | ~3.2% | fast | 2.1 MB |
-| LSTM (128 units) | ~2.8% | moderate | 4.2 MB |
-| Linear baseline | ~8.7% | very fast | 0.01 MB |
+| LSTM (64 units) | ~3.2% | ⚡ Fast | 2.1 MB |
+| LSTM (128 units) | ~2.8% | 🔶 Moderate | 4.2 MB |
+| Linear baseline | ~8.7% | ⚡⚡ Very fast | 0.01 MB |
 
-> **Note**: These apply to synthetic data only. Real-world accuracy depends on sensor quality, battery aging, and temperature. Always validate on data from your actual system before deploying.
+**Reality check:** These numbers apply to clean, synthetic data. Real-world performance depends on your sensor quality, actual battery aging, temperature variation, and more. Always validate on your own battery before deploying anything critical.
 
 ---
 
 ## 🗺️ Roadmap
 
-**Phase 1 — SOC Prediction** ✅ Complete
-- Synthetic drive-cycle generator, ECM physics simulation, LSTM training pipeline, evaluation metrics, unit tests
+**Phase 1: SOC Prediction** ✅ Done
+- Drive-cycle simulator, ECM physics, LSTM training, metrics, unit tests
 
-**Phase 2 — SOH Pipeline** 🚧 In Progress
-- Cycle-aging simulation (capacity fade, resistance growth), SOH label generation, extended dataset builder
+**Phase 2: Battery Degradation (SOH)** 🚧 In Progress
+- Cycle aging simulation, capacity fade, resistance growth, SOH labeling
 
-**Phase 3 — Production** 📋 Planned
-- REST inference API (FastAPI), ONNX model export, Docker image
+**Phase 3: Production Readiness** 📋 Planned
+- REST API (FastAPI), ONNX export, Docker container
 
-**Phase 4 — Advanced ML** 🔮 Future
-- Transformer baseline, physics-informed loss terms, uncertainty quantification (MC dropout), PyBaMM integration
+**Phase 4: Advanced ML** 🔮 Future
+- Transformer baselines, physics-informed loss functions, uncertainty quantification, PyBaMM integration
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome — bug fixes, new features, documentation improvements, and additional tests are all useful. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a PR.
+Found a bug? Have an idea for a feature? Cool! Check out [CONTRIBUTING.md](CONTRIBUTING.md) for the process.
 
-For larger changes, open a discussion first to align on direction.
+For big changes, please open an issue first so we can discuss the direction.
 
 ---
 
 ## FAQ
 
-**Do I need TensorFlow for everything?**
-No. The simulator and dataset builder work without it. Only LSTM model training requires TensorFlow (`pip install tensorflow>=2.13`).
+**Do I need TensorFlow for everything?**  
+Nope. The simulator and dataset builder are pure Python. Only LSTM training needs TensorFlow (`pip install tensorflow>=2.13`).
 
-**Can I use real battery data?**
-Yes. Format your data as a DataFrame with `time_s`, `current_a`, `voltage_v`, and `soc` columns, then pass it to `build_sequences`. Real-data ingestion helpers are on the roadmap.
+**Can I use real battery data instead of simulated?**  
+Absolutely. Format it as a DataFrame with columns `time_s`, `current_a`, `voltage_v`, and `soc`, then pass it to `build_sequences()`. Real-data loaders are on the roadmap.
 
-**Can I use this in a production BMS?**
-The architecture is designed for reliability, but production deployment requires validation on your specific battery chemistry and operating conditions. ONNX export (roadmap) will make embedded deployment easier.
+**Is this production-ready?**  
+The architecture is solid, but production deployment is on you. You need to validate it thoroughly on your specific battery chemistry and operating conditions. ONNX export (coming soon) will make embedded deployment easier.
 
-**What battery chemistries are supported?**
-Currently generic Li-ion. LFP, NCA, and NMC support is planned — the framework makes the OCV-SOC curve pluggable.
+**What battery chemistries work?**  
+Currently Li-ion (generic). LFP, NCA, and NMC support is planned. The OCV-SOC curve is pluggable, so adding chemistry-specific models is straightforward.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+MIT License. Do what you want with it. See [LICENSE](LICENSE) for details.
 
 ---
 
 ## 💬 Support
 
-- Open an [issue](https://github.com/pritam-09-ops/WIDSS/issues) for bug reports or feature requests
-- See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidance
+- **Found a bug?** [Open an issue](https://github.com/pritam-09-ops/WIDSS/issues)
+- **Have a feature idea?** [Start a discussion](https://github.com/pritam-09-ops/WIDSS/discussions)
+- **Want to contribute?** Check [CONTRIBUTING.md](CONTRIBUTING.md)
