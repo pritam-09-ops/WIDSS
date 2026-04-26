@@ -17,9 +17,9 @@
 
 ## What is WIDSS?
 
-WIDSS combines physics-based battery simulation with deep learning (LSTM networks) to estimate **State of Charge (SOC)** — basically, how much juice is left in your battery — in real time. Think of it as giving your battery a brain.
+WIDSS combines physics-based battery simulation with deep learning (LSTM networks) to estimate **State of Charge (SOC)** — basically, how much juice is left in your battery — in real time. Think of it as a smarter fuel gauge that actually learns from your driving patterns.
 
-The framework is built to be modular and extensible, so you can use just the physics simulator, integrate it with your own ML models, or leverage the full LSTM pipeline. No vendor lock-in, no black boxes.
+The framework is built to be modular and extensible, so you can use just the physics simulator, integrate it with your own ML models, or leverage the full LSTM pipeline. No vendor lock-in, no black boxes you can't tweak.
 
 > **State of Health (SOH)** — predicting long-term battery degradation — is currently being developed.
 
@@ -79,7 +79,7 @@ Your Battery → Physics Simulation → Windowed Sequences → LSTM → SOC Pred
 ```
 
 **Stage 1: Simulation** (`simulation.py`)  
-We model your battery using an Equivalent Circuit Model (ECM) — basically, a voltage source with some internal resistance. Feed in battery specs and a realistic drive cycle, out comes current/voltage/SOC timeseries.
+We model your battery using an Equivalent Circuit Model (ECM) — basically, a voltage source with some internal resistance. Feed in battery specs and a realistic drive cycle, out comes current/voltage pairs over time.
 
 **Stage 2: Dataset Builder** (`dataset.py`)  
 We chop up that timeseries into sliding windows. Each window is 30 (or however many) timesteps of voltage and current, with a label: the SOC one step ahead. This is how we teach the neural network.
@@ -159,7 +159,7 @@ python -m pytest
 
 SOC is the percentage of usable energy left in the battery: 0.0 means empty, 1.0 means fully charged. Get this wrong and your range prediction is garbage.
 
-Traditionally, people use **Coulomb counting** — you just integrate the current over time. Sounds simple, right? But it drifts like crazy due to sensor noise and temperature changes, and it can't account for recovery effects.
+Traditionally, people use **Coulomb counting** — you just integrate the current over time. Sounds simple, right? But it drifts like crazy due to sensor noise and temperature changes, and it can't account for recovery effects when you rest the battery.
 
 WIDSS uses an LSTM to learn the real relationship between voltage, current, and SOC. It picks up on patterns that raw integration misses.
 
@@ -175,7 +175,7 @@ Simple? Yes. Surprisingly accurate for most practical scenarios? Also yes. The O
 
 ### Drive Cycles
 
-We generate realistic current profiles: mix of acceleration bursts, steady cruising, regenerative braking (when the car slows down and charges the battery), and idle time. The pattern is deterministic but parameterizable.
+We generate realistic current profiles: mix of acceleration bursts, steady cruising, regenerative braking (when the car slows down and charges the battery), and idle time. The pattern is deterministic but parameterizable — same route, different random seed = different profile.
 
 ---
 
@@ -308,16 +308,46 @@ python scripts/train_soc_lstm.py \
   --units 128 --learning-rate 0.0005
 ```
 
-Each run now writes:
-- `soc_lstm.keras` (trained model)
-- `history_loss.npy` (training loss curve)
-- `training_summary.json` (final metrics + run config, presentation-friendly)
+### Output Files
+
+Each training run creates three artifacts in your `--output-dir`:
+
+- **`soc_lstm.keras`** — The trained model file, ready to load and use for predictions
+- **`history_loss.npy`** — Numpy array of training loss values, one per epoch
+- **`training_summary.json`** — Presentation-ready JSON summary with:
+  - All training parameters used (duration, window size, batch size, learning rate, etc.)
+  - Final metrics: `final_loss`, `final_val_loss`, `final_rmse`, `final_val_rmse`
+  - Dataset split information: `train_samples`, `val_samples`
+
+**Example summary output:**
+```json
+{
+  "duration_s": 7200,
+  "epochs": 10,
+  "batch_size": 64,
+  "units": 64,
+  "learning_rate": 0.001,
+  "train_samples": 2847,
+  "val_samples": 712,
+  "final_loss": 0.000182,
+  "final_val_loss": 0.000215,
+  "final_rmse": 0.0135,
+  "final_val_rmse": 0.0147
+}
+```
+
+### Tips for Success
 
 **How to choose `units`?**  
 Start with 64. If your MAPE is still above 5%, bump it to 128. Going higher rarely helps unless you have tons of data.
 
 **How to choose `window_size`?**  
 Bigger windows = more context for the model, but slower training. For 1 Hz data (1-second timesteps), 30–60 seconds is the sweet spot.
+
+**How to interpret the metrics?**  
+- Lower `final_val_loss` = better fit to validation data
+- `final_val_rmse` measures average prediction error in SOC units (0–1 scale), so ~0.015 means ±1.5% error
+- If `val_loss` is much higher than `train_loss`, you're overfitting — try reducing `units` or adding more training data
 
 ---
 
@@ -361,7 +391,7 @@ We've tested on synthetic battery data (2 hours of driving, 60 Ah Li-ion):
 | LSTM (128 units) | ~2.8% | 🔶 Moderate | 4.2 MB |
 | Linear baseline | ~8.7% | ⚡⚡ Very fast | 0.01 MB |
 
-**Reality check:** These numbers apply to clean, synthetic data. Real-world performance depends on your sensor quality, actual battery aging, temperature variation, and more. Always validate on your own hardware.
+**Reality check:** These numbers apply to clean, synthetic data. Real-world performance depends on your sensor quality, actual battery aging, temperature variation, and more. Always validate on your own data before deploying.
 
 ---
 
