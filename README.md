@@ -17,7 +17,7 @@
 
 ## What is WIDSS?
 
-WIDSS combines physics-based battery simulation with deep learning (LSTM networks) to estimate **State of Charge (SOC)** — basically, how much juice is left in your battery — in real time. Think of it as a smarter fuel gauge for electric vehicles.
+WIDSS combines physics-based battery simulation with deep learning (LSTM networks) to estimate **State of Charge (SOC)** — basically, how much juice is left in your battery — in real time. Think of it as giving your battery a brain.
 
 The framework is built to be modular and extensible, so you can use just the physics simulator, integrate it with your own ML models, or leverage the full LSTM pipeline. No vendor lock-in, no black boxes.
 
@@ -28,11 +28,11 @@ The framework is built to be modular and extensible, so you can use just the phy
 ## Who Should Care About This?
 
 - **EV Engineers** – You need a reliable SOC baseline that you can actually test and trust
-- **Battery Researchers** – You want to explore how physics and machine learning can work together  
+- **Battery Researchers** – You want to explore how physics and machine learning can work together
 - **Students & Learners** – You're interested in battery management systems (BMS) or time-series ML
 - **DIY Battery Enthusiasts** – You're building your own battery pack and want smarter monitoring
 
-Here's the thing: you don't need to be a deep learning expert to use this. The ML parts are well-documented, and the simulator runs perfectly fine without TensorFlow if you're just interested in the physics side.
+Here's the thing: you don't need to be a deep learning expert to use this. The ML parts are well-documented, and the simulator runs perfectly fine without TensorFlow if you're just interested in the physics.
 
 ---
 
@@ -46,7 +46,7 @@ Here's the thing: you don't need to be a deep learning expert to use this. The M
 6. [Configuring Your Battery](#️-configuration)
 7. [Training Models](#training-a-model)
 8. [Project Layout](#-project-structure)
-9. [Performance](#-benchmarks)
+9. [Performance](#-performance)
 10. [What's Next](#️-roadmap)
 11. [Want to Contribute?](#-contributing)
 12. [Questions?](#faq)
@@ -158,7 +158,7 @@ python -m pytest
 
 SOC is the percentage of usable energy left in the battery: 0.0 means empty, 1.0 means fully charged. Get this wrong and your range prediction is garbage.
 
-Traditionally, people use **Coulomb counting** — you just integrate the current over time. Sounds simple, right? But it drifts like crazy due to sensor noise and temperature changes, and it can't account for battery aging. 
+Traditionally, people use **Coulomb counting** — you just integrate the current over time. Sounds simple, right? But it drifts like crazy due to sensor noise and temperature changes, and it can't account for recovery effects.
 
 WIDSS uses an LSTM to learn the real relationship between voltage, current, and SOC. It picks up on patterns that raw integration misses.
 
@@ -174,7 +174,7 @@ Simple? Yes. Surprisingly accurate for most practical scenarios? Also yes. The O
 
 ### Drive Cycles
 
-We generate realistic current profiles: mix of acceleration bursts, steady cruising, regenerative braking (when the car slows down and charges the battery), and idle time. The pattern is deterministic (same seed = same cycle), so results are reproducible.
+We generate realistic current profiles: mix of acceleration bursts, steady cruising, regenerative braking (when the car slows down and charges the battery), and idle time. The pattern is deterministic but parameterizable.
 
 ---
 
@@ -352,7 +352,7 @@ We've tested on synthetic battery data (2 hours of driving, 60 Ah Li-ion):
 | LSTM (128 units) | ~2.8% | 🔶 Moderate | 4.2 MB |
 | Linear baseline | ~8.7% | ⚡⚡ Very fast | 0.01 MB |
 
-**Reality check:** These numbers apply to clean, synthetic data. Real-world performance depends on your sensor quality, actual battery aging, temperature variation, and more. Always validate on your own battery before deploying anything critical.
+**Reality check:** These numbers apply to clean, synthetic data. Real-world performance depends on your sensor quality, actual battery aging, temperature variation, and more. Always validate on your own hardware.
 
 ---
 
@@ -389,7 +389,7 @@ Nope. The simulator and dataset builder are pure Python. Only LSTM training need
 Absolutely. Format it as a DataFrame with columns `time_s`, `current_a`, `voltage_v`, and `soc`, then pass it to `build_sequences()`. Real-data loaders are on the roadmap.
 
 **Is this production-ready?**  
-The architecture is solid, but production deployment is on you. You need to validate it thoroughly on your specific battery chemistry and operating conditions. ONNX export (coming soon) will make embedded deployment easier.
+The architecture is solid, but production deployment is on you. You need to validate it thoroughly on your specific battery chemistry and operating conditions. ONNX export (coming soon) will make embedding easier.
 
 **What battery chemistries work?**  
 Currently Li-ion (generic). LFP, NCA, and NMC support is planned. The OCV-SOC curve is pluggable, so adding chemistry-specific models is straightforward.
