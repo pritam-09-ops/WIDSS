@@ -105,7 +105,9 @@ def main() -> int:
     print(f"🔋 Generating {args.duration_s // 3600:.1f} h drive cycle  (seed={args.seed}) …")
     cfg = BatterySimulationConfig(dt_s=args.dt_s)
     frame = build_dataset(duration_s=args.duration_s, config=cfg, seed=args.seed)
-    print(f"   → {len(frame):,} time-steps  |  SOC range [{frame['soc'].min():.3f}, {frame['soc'].max():.3f}]")
+    print(
+        f"   → {len(frame):,} time-steps  |  SOC range [{frame['soc'].min():.3f}, {frame['soc'].max():.3f}]"
+    )
 
     # ------------------------------------------------------------------
     # 2. Build sliding-window sequences
@@ -155,4 +157,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

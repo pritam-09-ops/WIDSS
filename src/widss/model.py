@@ -12,11 +12,15 @@ def tensorflow_available() -> bool:
         return False
 
 
-def build_lstm_soc_model(window_size: int, feature_count: int, units: int = 64, learning_rate: float = 1e-3) -> Any:
+def build_lstm_soc_model(
+    window_size: int, feature_count: int, units: int = 64, learning_rate: float = 1e-3
+) -> Any:
     try:
         import tensorflow as tf
     except Exception as exc:
-        raise RuntimeError("TensorFlow is not installed. Install it to train the LSTM model.") from exc
+        raise RuntimeError(
+            "TensorFlow is not installed. Install it to train the LSTM model."
+        ) from exc
 
     model = tf.keras.Sequential(
         [

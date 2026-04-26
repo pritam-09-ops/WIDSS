@@ -23,7 +23,9 @@ class BatterySimulationConfig:
     ocv_max_v: float = 4.2
 
 
-def generate_drive_cycle(duration_s: int = 3600, dt_s: float = 1.0, seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
+def generate_drive_cycle(
+    duration_s: int = 3600, dt_s: float = 1.0, seed: int = 42
+) -> tuple[np.ndarray, np.ndarray]:
     """Generate a synthetic EV-like current profile over time."""
     if duration_s <= 0:
         raise ValueError("duration_s must be positive")
@@ -54,7 +56,9 @@ def generate_drive_cycle(duration_s: int = 3600, dt_s: float = 1.0, seed: int = 
     return time_s, current_a
 
 
-def simulate_battery_states(current_a: np.ndarray, config: BatterySimulationConfig) -> tuple[np.ndarray, np.ndarray]:
+def simulate_battery_states(
+    current_a: np.ndarray, config: BatterySimulationConfig
+) -> tuple[np.ndarray, np.ndarray]:
     if current_a.ndim != 1:
         raise ValueError("current_a must be a 1D array")
 

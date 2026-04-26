@@ -6,7 +6,6 @@ import pytest
 
 from widss.model import build_lstm_soc_model, tensorflow_available
 
-
 # ---------------------------------------------------------------------------
 # Skip all tests gracefully when TensorFlow is not installed
 # ---------------------------------------------------------------------------
