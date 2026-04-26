@@ -100,7 +100,7 @@ def _validate_shapes(y_true: np.ndarray, y_pred: np.ndarray) -> None:
     """Raise ``ValueError`` if arrays are incompatible for metric computation."""
     if y_true.shape != y_pred.shape:
         raise ValueError(
-            "y_true and y_pred must have the same shape; " f"got {y_true.shape} vs {y_pred.shape}"
+            f"y_true and y_pred must have the same shape; got {y_true.shape} vs {y_pred.shape}"
         )
     if y_true.size == 0:
         raise ValueError("y_true and y_pred must not be empty")
