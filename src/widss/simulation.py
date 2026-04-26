@@ -8,7 +8,8 @@ import pandas as pd
 MIN_SEGMENT_STEPS = 5
 MAX_SEGMENT_STEPS = 60
 DRIVE_MODES = ("idle", "cruise", "accel", "regen")
-# Typical mixed EV usage profile: idle, steady cruise, acceleration bursts, and regenerative braking.
+# Typical mixed EV usage profile: idle, steady cruise, acceleration bursts,
+# and regenerative braking.
 DRIVE_MODE_PROBABILITIES = (0.2, 0.35, 0.3, 0.15)
 SECONDS_PER_HOUR = 3600.0
 

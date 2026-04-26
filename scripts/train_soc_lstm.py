@@ -105,9 +105,9 @@ def main() -> int:
     print(f"🔋 Generating {args.duration_s // 3600:.1f} h drive cycle  (seed={args.seed}) …")
     cfg = BatterySimulationConfig(dt_s=args.dt_s)
     frame = build_dataset(duration_s=args.duration_s, config=cfg, seed=args.seed)
-    print(
-        f"   → {len(frame):,} time-steps  |  SOC range [{frame['soc'].min():.3f}, {frame['soc'].max():.3f}]"
-    )
+    soc_min = frame["soc"].min()
+    soc_max = frame["soc"].max()
+    print(f"   → {len(frame):,} time-steps  |  SOC range [{soc_min:.3f}, {soc_max:.3f}]")
 
     # ------------------------------------------------------------------
     # 2. Build sliding-window sequences
@@ -123,7 +123,7 @@ def main() -> int:
     # ------------------------------------------------------------------
     # 3. Build and train model
     # ------------------------------------------------------------------
-    print(f"🧠 Building LSTM model …")
+    print("🧠 Building LSTM model …")
     model = build_lstm_soc_model(window_size=x.shape[1], feature_count=x.shape[2])
 
     print(f"🚀 Training for {args.epochs} epoch(s)  (batch={args.batch_size}) …")
