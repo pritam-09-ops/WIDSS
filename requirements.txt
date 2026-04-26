@@ -1,3 +1,13 @@
 numpy>=1.24
 pandas>=2.0
+
+# Development / testing (also available via: pip install -e ".[dev]")
 pytest>=8.0
+pytest-cov>=5.0
+black>=24.0
+isort>=5.13
+flake8>=7.0
+mypy>=1.8
+
+# ML backend (optional)
+# tensorflow>=2.13

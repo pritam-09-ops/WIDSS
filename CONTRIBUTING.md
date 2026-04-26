@@ -1,188 +1,229 @@
 # Contributing to WIDSS
 
-Thank you for your interest in contributing to WIDSS! This document provides guidelines and instructions for participating in the project.
+Thank you for your interest in contributing to WIDSS! 🎉  
+This document explains how to set up your development environment, follow our code standards, and submit a pull request.
 
-## Getting Started
+---
 
-### 1. Fork and Clone
-```bash
-# Fork the repository on GitHub, then clone your fork
-git clone https://github.com/YOUR-USERNAME/WIDSS.git
-cd WIDSS
-```
+## Table of Contents
 
-### 2. Set Up Your Development Environment
-```bash
-# Create a virtual environment (optional but recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+- [Fork & Clone](#fork--clone)
+- [Development Environment](#development-environment)
+- [Types of Contributions](#types-of-contributions)
+- [Code Style](#code-style)
+- [Type Hints & Docstrings](#type-hints--docstrings)
+- [Testing](#testing)
+- [Commit Messages](#commit-messages)
+- [Pull Request Process](#pull-request-process)
+- [Bug Reports & Feature Requests](#bug-reports--feature-requests)
+- [Code of Conduct](#code-of-conduct)
 
-# Install the package in editable mode with dev dependencies
-pip install -e .
-pip install pytest pytest-cov tensorflow>=2.13  # Optional, for model training
-```
+---
 
-### 3. Create a Feature Branch
-```bash
-git checkout -b feature/your-feature-name
-# or for bug fixes:
-git checkout -b bugfix/issue-description
-```
+## Fork & Clone
 
-## Development Workflow
+1. Click **Fork** in the top-right corner of the [repository page](https://github.com/pritam-09-ops/WIDSS).
+2. Clone your fork locally:
 
-### Making Changes
-
-1. **Make your changes** in a focused branch. Each PR should address one feature or bug.
-2. **Write or update tests** for your changes in the `tests/` directory.
-3. **Run tests locally** to ensure nothing breaks:
    ```bash
-   pytest
-   pytest -v  # Verbose output
-   pytest --cov=src/widss --cov-report=html  # Check coverage
+   git clone https://github.com/<your-username>/WIDSS.git
+   cd WIDSS
    ```
-4. **Verify code quality** — keep the codebase readable:
-   - Follow PEP 8 style guidelines
-   - Add docstrings to functions and classes
-   - Keep functions focused and testable
 
-### Commit Messages
+3. Add the upstream remote:
 
-Write clear, concise commit messages:
-- Use imperative mood: "Add feature" not "Added feature"
-- Reference issues if applicable: "Fix #42: Resolve SOC drift in long drives"
-- Keep the first line under 50 characters
+   ```bash
+   git remote add upstream https://github.com/pritam-09-ops/WIDSS.git
+   ```
 
-Example:
+4. Create a feature branch:
+
+   ```bash
+   git checkout -b feature/my-awesome-feature
+   # or for bug fixes:
+   git checkout -b bugfix/issue-description
+   ```
+
+---
+
+## Development Environment
+
+```bash
+# Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+# Install the package in editable mode with all dev dependencies
+pip install -e ".[all]"
 ```
-Add temperature correction to ECM
 
-This implements a simple temperature adjustment to the open-circuit voltage calculation,
-improving accuracy in cold/hot environments. Addresses #15.
-```
+This installs:
+
+- Core: `numpy`, `pandas`
+- ML backend: `tensorflow`
+- Dev tools: `pytest`, `pytest-cov`, `black`, `flake8`, `isort`, `mypy`
+
+---
 
 ## Types of Contributions
 
-### Bug Reports
-If you find a bug, please open an issue and include:
-- **Python version** (`python --version`)
-- **Operating system** (Windows, macOS, Linux)
-- **Steps to reproduce** the issue
-- **Expected vs. actual behavior**
-- **Error message or stack trace** (if applicable)
+### Bug Fixes
+Submit a PR that includes a test that fails before the fix and passes after.
 
-### Feature Requests
-- Describe the use case clearly
-- Explain why this feature would be useful
-- Provide examples if possible
+### New Features
+Each PR should address one focused feature. For larger changes, open an issue first to align on direction.
 
 ### Documentation
-- Improvements to README.md, docstrings, or examples are always welcome
-- Ensure markdown is properly formatted
-- Update the Table of Contents if adding new sections
+Improvements to README.md, docstrings, or examples are always welcome. Update the Table of Contents if adding new sections.
 
 ### Code Improvements
-- Refactoring to improve readability
-- Performance optimizations (include benchmarks!)
-- Additional test coverage
-- Code style or consistency improvements
+Refactoring, performance optimizations (include benchmarks), or additional test coverage.
 
-## Testing Requirements
+---
 
-All contributions must include or pass tests:
+## Code Style
 
-- **New features** should include unit tests in `tests/`
-- **Bug fixes** should include a test that fails before the fix and passes after
-- **Target coverage:** >80% of the code you write
+We enforce consistent formatting with **Black**, **isort**, and **flake8**:
 
-Run tests before submitting:
 ```bash
-pytest
-pytest --cov=src/widss --cov-report=html
+# Auto-format
+black src/ tests/ scripts/
+
+# Sort imports
+isort src/ tests/ scripts/
+
+# Lint
+flake8 src/ tests/ scripts/
+
+# Type check
+mypy src/
 ```
+
+Key rules:
+
+- Line length: **100** characters (as configured in `pyproject.toml`)
+- Maximum complexity: **10** (flake8)
+- Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/)
+- Two blank lines between top-level definitions
+- One blank line between methods inside a class
+
+All checks run automatically in CI on every pull request.
+
+---
+
+## Type Hints & Docstrings
+
+- **All** public functions and methods must have complete type annotations.
+- Use **Google-style docstrings** with `Args:`, `Returns:`, and `Raises:` sections.
+- Include at least one `Example:` block for public API functions.
+
+```python
+def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Compute Root Mean Squared Error.
+
+    Args:
+        y_true: Ground-truth values, shape ``(n,)``.
+        y_pred: Model predictions, shape ``(n,)``.
+
+    Returns:
+        Scalar RMSE (non-negative).
+
+    Raises:
+        ValueError: If arrays have different shapes or are empty.
+
+    Example:
+        >>> import numpy as np
+        >>> rmse(np.array([1.0, 2.0]), np.array([1.1, 1.9]))
+        0.1
+    """
+```
+
+---
+
+## Testing
+
+- Write tests for every new public function or behaviour change.
+- Place tests in `tests/` with the filename pattern `test_<module>.py`.
+- Tests should be deterministic — use fixed seeds when randomness is involved.
+
+```bash
+# Run the full test suite
+python -m pytest
+
+# Run with coverage report
+python -m pytest --cov=widss --cov-report=term-missing
+
+# Run a specific file
+python -m pytest tests/test_evaluation.py -v
+```
+
+**Minimum coverage target**: 80% of new code.
+
+---
+
+## Commit Messages
+
+Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```
+<type>(<scope>): <short description>
+
+[optional body]
+
+[optional footer]
+```
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`
+
+Examples:
+
+```
+feat(evaluation): add MAPE metric function
+fix(dataset): handle edge case when window_size equals sequence length
+docs(readme): add benchmark table
+test(simulation): increase coverage for regen drive mode
+```
+
+---
 
 ## Pull Request Process
 
-1. **Push your branch** to your fork:
+1. **Sync** your branch with upstream before opening a PR:
+
+   ```bash
+   git fetch upstream
+   git rebase upstream/main
+   ```
+
+2. Push your branch and open a PR against `main`:
+
    ```bash
    git push origin feature/your-feature-name
    ```
 
-2. **Open a Pull Request** on GitHub:
-   - Use a descriptive title
-   - Reference any related issues: "Closes #42"
-   - Describe what you changed and why
-   - Include screenshots/examples if relevant
+3. Fill in the pull request template (checklist auto-populated).
+4. Ensure all CI checks pass (tests + lint).
+5. Request a review from a maintainer.
+6. Address review comments and push updates to the same branch.
+7. A maintainer will merge once approved.
 
-3. **Address feedback**:
-   - Respond to review comments
-   - Make requested changes and push them (no need to squash)
-   - Re-request review after updates
+### PR Checklist (quick reference)
 
-4. **Merging**:
-   - Maintainers will merge your PR once it's approved and tests pass
-   - Thank you for the contribution!
+- [ ] All tests pass locally (`python -m pytest`)
+- [ ] Code formatted with Black and isort
+- [ ] flake8 / mypy show no new errors
+- [ ] New behaviour is covered by tests
+- [ ] Docstrings added/updated for public APIs
+- [ ] CHANGELOG.md updated under `[Unreleased]`
 
-## Code Style Guidelines
+---
 
-### Python Style
-- Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/)
-- Use 4 spaces for indentation
-- Aim for lines ≤100 characters (flexible for readability)
+## Bug Reports & Feature Requests
 
-### Docstrings
-Every public function should have a docstring:
-```python
-def build_sequences(df, window_size=30):
-    """
-    Convert a timeseries DataFrame into sliding windows for LSTM training.
-    
-    Args:
-        df (pd.DataFrame): DataFrame with columns [time_s, current_a, voltage_v, soc]
-        window_size (int): Number of timesteps per window. Default: 30.
-    
-    Returns:
-        tuple: (x, y) where x is shape (n_windows, window_size, 2) and 
-               y is shape (n_windows,)
-    """
-```
+- **Bugs**: Use the [Bug Report](.github/ISSUE_TEMPLATE/bug_report.md) template. Include a minimal reproducible example, expected vs actual behaviour, Python version, OS, and stack trace.
+- **Features**: Use the [Feature Request](.github/ISSUE_TEMPLATE/feature_request.md) template. Describe the use case and alternatives you considered.
 
-### Type Hints (Encouraged)
-```python
-from typing import Tuple
-import pandas as pd
-import numpy as np
-
-def build_sequences(df: pd.DataFrame, window_size: int = 30) -> Tuple[np.ndarray, np.ndarray]:
-    ...
-```
-
-## Project Structure
-
-```
-WIDSS/
-├── src/widss/
-│   ├── simulation.py    # Physics simulation & drive cycle
-│   ├── dataset.py       # Sliding window builder
-│   ├── model.py         # LSTM model definition
-│   └── evaluation.py    # Metrics and evaluation
-├── scripts/
-│   └── train_soc_lstm.py  # End-to-end training CLI
-├── tests/               # Unit tests
-├── pyproject.toml
-├── CONTRIBUTING.md
-└── README.md
-```
-
-## Licensing
-
-By contributing to WIDSS, you agree that your contributions will be licensed under the MIT License (see LICENSE file).
-
-## Questions or Need Help?
-
-- **For questions:** Open a GitHub discussion or issue
-- **For larger changes:** Open an issue first to discuss the approach before implementing
-- **Need clarification:** Ask in comments or discussions — we're here to help!
+---
 
 ## Code of Conduct
 
@@ -190,4 +231,4 @@ Be respectful and inclusive. We welcome contributions from people of all backgro
 
 ---
 
-Thank you for helping make WIDSS better! 🚗⚡
+Thank you for helping make WIDSS better! 🔋
