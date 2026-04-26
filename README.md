@@ -17,9 +17,9 @@
 
 ## What is WIDSS?
 
-WIDSS combines physics-based battery simulation with deep learning (LSTM networks) to estimate **State of Charge (SOC)** — basically, how much juice is left in your battery — in real time. Think of it as a smarter fuel gauge that actually learns from your driving patterns.
+WIDSS combines physics-based battery simulation with deep learning (LSTM networks) to estimate **State of Charge (SOC)** in real time.
 
-The framework is built to be modular and extensible, so you can use just the physics simulator, integrate it with your own ML models, or leverage the full LSTM pipeline. No vendor lock-in, no black boxes you can't tweak.
+The framework is modular and extensible, so you can use only the physics simulator, integrate your own ML models, or run the full LSTM pipeline end-to-end.
 
 > **State of Health (SOH)** — predicting long-term battery degradation — is currently being developed.
 
@@ -32,7 +32,7 @@ The framework is built to be modular and extensible, so you can use just the phy
 - **Students & Learners** – You're interested in battery management systems (BMS) or time-series ML
 - **DIY Battery Enthusiasts** – You're building your own battery pack and want smarter monitoring
 
-Here's the thing: you don't need to be a deep learning expert to use this. The ML parts are well-documented, and the simulator runs perfectly fine without TensorFlow if you're just interested in the physics.
+You do not need to be a deep learning expert to use WIDSS. The simulator works without TensorFlow, and the ML workflow is optional.
 
 ---
 
@@ -46,7 +46,7 @@ Here's the thing: you don't need to be a deep learning expert to use this. The M
 6. [Configuring Your Battery](#️-configuration)
 7. [Training Models](#training-a-model)
 8. [Project Layout](#-project-structure)
-9. [Performance](#-performance)
+9. [Results](#-results)
 10. [What's Next](#️-roadmap)
 11. [Want to Contribute?](#-contributing)
 12. [Questions?](#faq)
@@ -381,9 +381,11 @@ WIDSS/
 
 ---
 
-## 📊 Performance
+## 📊 Results
 
-We've tested on synthetic battery data (2 hours of driving, 60 Ah Li-ion):
+### Benchmark snapshot (synthetic data)
+
+The following benchmarks were measured on synthetic battery data (2 hours of driving, 60 Ah Li-ion):
 
 | Model | Avg Error | Speed | Model Size |
 |---|---|---|---|
@@ -391,7 +393,35 @@ We've tested on synthetic battery data (2 hours of driving, 60 Ah Li-ion):
 | LSTM (128 units) | ~2.8% | 🔶 Moderate | 4.2 MB |
 | Linear baseline | ~8.7% | ⚡⚡ Very fast | 0.01 MB |
 
-**Reality check:** These numbers apply to clean, synthetic data. Real-world performance depends on your sensor quality, actual battery aging, temperature variation, and more. Always validate on your own data before deploying.
+### Example run result (`training_summary.json`)
+
+You can generate reproducible run metrics with:
+
+```bash
+python scripts/train_soc_lstm.py --duration-s 7200 --epochs 10 --units 64 --seed 42
+```
+
+Example summary output:
+
+```json
+{
+  "duration_s": 7200,
+  "dt_s": 1.0,
+  "window_size": 30,
+  "epochs": 10,
+  "batch_size": 64,
+  "units": 64,
+  "learning_rate": 0.001,
+  "train_samples": 5736,
+  "val_samples": 1434,
+  "final_loss": 0.000182,
+  "final_val_loss": 0.000215,
+  "final_rmse": 0.0135,
+  "final_val_rmse": 0.0147
+}
+```
+
+**Reality check:** These values are for clean, synthetic data. Real-world performance depends on sensor quality, battery aging, temperature, and operating conditions. Always validate with your own data before deployment.
 
 ---
 

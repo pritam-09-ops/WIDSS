@@ -16,6 +16,8 @@ This project follows [Semantic Versioning](https://semver.org/) and
   and RMSE, plus run configuration for presentation reporting.
 - Updated README training examples and parameter tables to document the fine-tuning
   workflow and new run artifact.
+- Polished README wording for clarity and added a dedicated **Results** section
+  with benchmark snapshot and reproducible run-metrics example.
 
 ---
 
