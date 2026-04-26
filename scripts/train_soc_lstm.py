@@ -19,6 +19,7 @@ Example:
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import numpy as np
@@ -67,6 +68,20 @@ def parse_args() -> argparse.Namespace:
         default=64,
         metavar="B",
         help="Mini-batch size (default: 64).",
+    )
+    parser.add_argument(
+        "--units",
+        type=int,
+        default=64,
+        metavar="U",
+        help="Number of LSTM units (default: 64).",
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=1e-3,
+        metavar="LR",
+        help="Adam learning rate (default: 1e-3).",
     )
     parser.add_argument(
         "--seed",
@@ -124,7 +139,12 @@ def main() -> int:
     # 3. Build and train model
     # ------------------------------------------------------------------
     print("🧠 Building LSTM model …")
-    model = build_lstm_soc_model(window_size=x.shape[1], feature_count=x.shape[2])
+    model = build_lstm_soc_model(
+        window_size=x.shape[1],
+        feature_count=x.shape[2],
+        units=args.units,
+        learning_rate=args.learning_rate,
+    )
 
     print(f"🚀 Training for {args.epochs} epoch(s)  (batch={args.batch_size}) …")
     history = model.fit(
@@ -142,16 +162,41 @@ def main() -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     model_path = args.output_dir / "soc_lstm.keras"
     history_path = args.output_dir / "history_loss.npy"
+    summary_path = args.output_dir / "training_summary.json"
 
     model.save(model_path)
     np.save(history_path, np.asarray(history.history.get("loss", []), dtype=float))
 
+    final_loss = history.history.get("loss", [float("nan")])[-1]
     final_val_loss = history.history.get("val_loss", [float("nan")])[-1]
+    final_rmse = history.history.get("rmse", [float("nan")])[-1]
+    final_val_rmse = history.history.get("val_rmse", [float("nan")])[-1]
+    summary = {
+        "duration_s": args.duration_s,
+        "dt_s": args.dt_s,
+        "window_size": args.window_size,
+        "epochs": args.epochs,
+        "batch_size": args.batch_size,
+        "units": args.units,
+        "learning_rate": args.learning_rate,
+        "train_samples": len(x_train),
+        "val_samples": len(x_val),
+        "final_loss": float(final_loss),
+        "final_val_loss": float(final_val_loss),
+        "final_rmse": float(final_rmse),
+        "final_val_rmse": float(final_val_rmse),
+    }
+    summary_path.write_text(f"{json.dumps(summary, indent=2)}\n", encoding="utf-8")
+
     print()
     print("✅ Done!")
     print(f"   Model  → {model_path.resolve()}")
     print(f"   History → {history_path.resolve()}")
+    print(f"   Summary → {summary_path.resolve()}")
+    print(f"   Final train loss: {final_loss:.6f}")
     print(f"   Final val loss: {final_val_loss:.6f}")
+    print(f"   Final train RMSE: {final_rmse:.6f}")
+    print(f"   Final val RMSE: {final_val_rmse:.6f}")
     return 0
 
 

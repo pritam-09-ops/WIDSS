@@ -142,6 +142,7 @@ print(x.shape, y.shape)  # (3539, 30, 2)  (3539,)
 ```bash
 python scripts/train_soc_lstm.py \
     --duration-s 7200 --window-size 30 --epochs 10 \
+    --units 128 --learning-rate 0.0005 \
     --output-dir runs/first_run
 ```
 
@@ -276,15 +277,17 @@ python scripts/train_soc_lstm.py [options]
 | `--window-size` | `30` | Input window length for LSTM |
 | `--epochs` | `5` | Training rounds |
 | `--batch-size` | `64` | Samples per gradient update |
+| `--units` | `64` | Number of LSTM units |
+| `--learning-rate` | `1e-3` | Adam optimizer learning rate |
 | `--seed` | `42` | Random seed for reproducibility |
-| `--output-dir` | `outputs/` | Where to save results |
+| `--output-dir` | `outputs/` | Where to save model and run summary |
 
 ### LSTM Tuning
 
 | Parameter | Default | Notes |
 |---|---|---|
-| `units` | `64` | Number of LSTM cells. 64 is solid, 128 is better but slower |
-| `learning_rate` | `1e-3` | Adam optimizer learning rate |
+| `--units` | `64` | Number of LSTM cells. 64 is solid, 128 is better but slower |
+| `--learning-rate` | `1e-3` | Adam optimizer learning rate |
 
 ---
 
@@ -297,12 +300,18 @@ Here are some practical examples:
 python scripts/train_soc_lstm.py --duration-s 300 --epochs 5
 
 # Standard training
-python scripts/train_soc_lstm.py --duration-s 7200 --epochs 10
+python scripts/train_soc_lstm.py --duration-s 7200 --epochs 10 --units 64
 
 # Serious training with more data and parameters
 python scripts/train_soc_lstm.py \
-  --duration-s 14400 --epochs 20 --batch-size 32 --window-size 60
+  --duration-s 14400 --epochs 20 --batch-size 32 --window-size 60 \
+  --units 128 --learning-rate 0.0005
 ```
+
+Each run now writes:
+- `soc_lstm.keras` (trained model)
+- `history_loss.npy` (training loss curve)
+- `training_summary.json` (final metrics + run config, presentation-friendly)
 
 **How to choose `units`?**  
 Start with 64. If your MAPE is still above 5%, bump it to 128. Going higher rarely helps unless you have tons of data.
