@@ -8,7 +8,14 @@ This project follows [Semantic Versioning](https://semver.org/) and
 
 ## [Unreleased]
 
-*Nothing yet — see the [roadmap](#future-releases) below.*
+### Changed
+
+- Enhanced `scripts/train_soc_lstm.py` with tunable CLI knobs for `--units` and
+  `--learning-rate` to simplify model fine-tuning.
+- Added `training_summary.json` artifact output with final train/validation loss
+  and RMSE, plus run configuration for presentation reporting.
+- Updated README training examples and parameter tables to document the fine-tuning
+  workflow and new run artifact.
 
 ---
 
