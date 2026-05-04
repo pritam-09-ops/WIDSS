@@ -1,307 +1,249 @@
-"""Synthetic EV drive-cycle generator and battery physics simulator.
+"""Train an LSTM model for SOC prediction on synthetic drive-cycle data.
 
-This module implements a first-order Equivalent Circuit Model (ECM) for
-Li-ion batteries and a stochastic drive-cycle generator that produces
-realistic EV current profiles.
+This is the main entry-point script for the WIDSS training pipeline.
+It orchestrates the full workflow:
 
-Physics Model
--------------
-The battery is modelled as:
+1. **Generate** — Create a synthetic EV drive cycle using physics simulation
+2. **Build** — Convert the timeseries into sliding-window ML sequences
+3. **Train** — Fit a two-layer LSTM model on the data
+4. **Save** — Export the trained model, loss history, and run summary
 
-.. code-block:: text
+All parameters are configurable via CLI arguments. The script produces
+three output artifacts:
 
-    V_terminal = OCV(SOC) − I × R_internal
+- ``soc_lstm.keras`` — Trained Keras model file
+- ``history_loss.npy`` — Per-epoch training loss (NumPy array)
+- ``training_summary.json`` — Full run config + final metrics (JSON)
 
-where:
-- **OCV(SOC)** is the Open-Circuit Voltage, linearly interpolated between
-  ``ocv_min_v`` (at SOC=0) and ``ocv_max_v`` (at SOC=1).
-- **I** is the instantaneous current (positive = discharge, negative = charge).
-- **R_internal** is the lumped internal resistance.
+Usage Examples
+--------------
+Quick test run (~2 minutes)::
 
-SOC is updated at each timestep via Coulomb counting:
+    python scripts/train_soc_lstm.py --duration-s 300 --epochs 5
 
-.. code-block:: text
+Standard training (2 hours of simulated data)::
 
-    ΔSOC = −(I × Δt) / (Q × 3600)
+    python scripts/train_soc_lstm.py --duration-s 7200 --epochs 10 --units 64
 
-where Q is the battery capacity in Ah.
+Full training with hyperparameter tuning::
 
-Drive Cycle Modes
------------------
-The generator produces current profiles by randomly sampling from four
-driving modes with configurable probabilities:
+    python scripts/train_soc_lstm.py \\
+        --duration-s 14400 --epochs 20 --batch-size 32 --window-size 60 \\
+        --units 128 --learning-rate 0.0005 --output-dir runs/exp1
 
-| Mode    | Current Range     | Default Probability |
-|---------|-------------------|---------------------|
-| idle    | 0 A               | 20%                 |
-| cruise  | 5 – 20 A          | 35%                 |
-| accel   | 20 – 80 A         | 30%                 |
-| regen   | −40 – −5 A        | 15%                 |
-
-Each mode segment lasts 5–60 timesteps, with Gaussian noise (σ=1 A) added
-for realism.
-
-Example
--------
->>> from widss.simulation import BatterySimulationConfig, build_dataset
->>>
->>> # Simulate 1 hour with a 60 Ah battery starting at 95% charge
->>> cfg = BatterySimulationConfig(capacity_ah=60.0, soc_init=0.95)
->>> frame = build_dataset(duration_s=3600, config=cfg, seed=42)
->>> print(frame.head())
-   time_s  current_a  voltage_v       soc
-0     0.0   5.234291   4.175419  0.950000
-1     1.0   4.896742   4.176384  0.949976
-...
-
-See Also
---------
-widss.dataset : Convert simulation output into ML-ready sequences.
+Requirements
+------------
+- TensorFlow >= 2.13 (install with ``pip install 'widss[tensorflow]'``)
+- The ``src/`` directory must be on the Python path (handled automatically
+  if installed via ``pip install -e .``)
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import argparse
+import json
+from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-MIN_SEGMENT_STEPS = 5
-"""Minimum number of timesteps per drive-cycle segment."""
-
-MAX_SEGMENT_STEPS = 60
-"""Maximum number of timesteps per drive-cycle segment."""
-
-DRIVE_MODES = ("idle", "cruise", "accel", "regen")
-"""Available driving modes for the synthetic drive-cycle generator."""
-
-DRIVE_MODE_PROBABILITIES = (0.2, 0.35, 0.3, 0.15)
-"""Default sampling probabilities for each drive mode.
-
-Represents a typical mixed EV usage profile: idle, steady cruise,
-acceleration bursts, and regenerative braking.
-"""
-
-SECONDS_PER_HOUR = 3600.0
-"""Conversion factor used in Coulomb counting: 1 hour = 3600 seconds."""
+from widss.dataset import build_sequences
+from widss.model import build_lstm_soc_model, tensorflow_available
+from widss.simulation import BatterySimulationConfig, build_dataset
 
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-
-@dataclass(slots=True)
-class BatterySimulationConfig:
-    """Configuration for the ECM battery simulator.
-
-    All fields have sensible defaults for a generic Li-ion EV battery pack.
-    Adjust these to match your specific cell chemistry and pack topology.
-
-    Attributes:
-        capacity_ah: Total usable battery capacity in Amp-hours.
-            Typical EV range: 40–100 Ah.
-        soc_init: Initial State of Charge (0.0 = empty, 1.0 = full).
-            Clamped to [0, 1] during simulation.
-        dt_s: Simulation timestep in seconds. Smaller values increase
-            accuracy at the cost of computation time.
-        internal_resistance_ohm: Lumped internal resistance in Ohms.
-            Affects terminal voltage drop under load.
-        ocv_min_v: Open-Circuit Voltage at SOC = 0 (fully discharged).
-        ocv_max_v: Open-Circuit Voltage at SOC = 1 (fully charged).
-
-    Example:
-        >>> cfg = BatterySimulationConfig(
-        ...     capacity_ah=80.0,
-        ...     soc_init=0.90,
-        ...     internal_resistance_ohm=0.03
-        ... )
-        >>> print(cfg.capacity_ah)
-        80.0
-    """
-
-    capacity_ah: float = 60.0
-    soc_init: float = 0.95
-    dt_s: float = 1.0
-    internal_resistance_ohm: float = 0.02
-    ocv_min_v: float = 3.0
-    ocv_max_v: float = 4.2
-
-
-# ---------------------------------------------------------------------------
-# Drive Cycle Generation
-# ---------------------------------------------------------------------------
-
-
-def generate_drive_cycle(
-    duration_s: int = 3600, dt_s: float = 1.0, seed: int = 42
-) -> tuple[np.ndarray, np.ndarray]:
-    """Generate a synthetic EV-like current profile over time.
-
-    Produces a stochastic current waveform by randomly sequencing segments
-    of driving modes (idle, cruise, acceleration, regenerative braking).
-    Each segment has a random duration and amplitude drawn from mode-specific
-    ranges, with Gaussian noise added for realism.
-
-    Args:
-        duration_s: Total simulation duration in seconds. Must be positive.
-        dt_s: Timestep size in seconds. Must be positive.
-        seed: Random seed for reproducibility. Same seed + same parameters
-            always produces the same drive cycle.
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the training script.
 
     Returns:
-        A tuple ``(time_s, current_a)`` of 1-D NumPy arrays:
-
-        - **time_s** — timestamps in seconds, shape ``(n_steps,)``
-        - **current_a** — current draw in Amperes, shape ``(n_steps,)``
-          (positive = discharge, negative = regenerative charging)
-
-    Raises:
-        ValueError: If ``duration_s`` or ``dt_s`` is not positive.
-
-    Example:
-        >>> time_s, current_a = generate_drive_cycle(duration_s=60, seed=1)
-        >>> print(time_s.shape, current_a.shape)
-        (60,) (60,)
+        Parsed argument namespace with all training parameters.
     """
-    if duration_s <= 0:
-        raise ValueError("duration_s must be positive")
-    if dt_s <= 0:
-        raise ValueError("dt_s must be positive")
-
-    rng = np.random.default_rng(seed)
-    n_steps = int(duration_s / dt_s)
-    time_s = np.arange(n_steps) * dt_s
-
-    current_a = np.zeros(n_steps, dtype=float)
-    step_idx = 0
-    while step_idx < n_steps:
-        segment_len = int(rng.integers(MIN_SEGMENT_STEPS, MAX_SEGMENT_STEPS))
-        segment_end = min(step_idx + segment_len, n_steps)
-        mode = rng.choice(DRIVE_MODES, p=DRIVE_MODE_PROBABILITIES)
-        if mode == "idle":
-            amp = 0.0
-        elif mode == "cruise":
-            amp = float(rng.uniform(5.0, 20.0))
-        elif mode == "accel":
-            amp = float(rng.uniform(20.0, 80.0))
-        else:
-            amp = float(rng.uniform(-40.0, -5.0))
-        current_a[step_idx:segment_end] = amp + rng.normal(0.0, 1.0, segment_end - step_idx)
-        step_idx = segment_end
-
-    return time_s, current_a
-
-
-# ---------------------------------------------------------------------------
-# Battery State Simulation
-# ---------------------------------------------------------------------------
-
-
-def simulate_battery_states(
-    current_a: np.ndarray, config: BatterySimulationConfig
-) -> tuple[np.ndarray, np.ndarray]:
-    """Simulate battery SOC and terminal voltage from a current profile.
-
-    Applies Coulomb counting to track SOC and computes terminal voltage
-    using the first-order ECM:  ``V = OCV(SOC) − I × R_internal``.
-
-    SOC is clamped to [0, 1] at every timestep to prevent unphysical values.
-
-    Args:
-        current_a: 1-D array of current values in Amperes. Positive values
-            represent discharge; negative values represent charging
-            (regenerative braking).
-        config: Battery configuration parameters. See
-            :class:`BatterySimulationConfig` for details.
-
-    Returns:
-        A tuple ``(soc, voltage_v)`` of 1-D NumPy arrays:
-
-        - **soc** — State of Charge at each timestep, range [0, 1]
-        - **voltage_v** — Terminal voltage at each timestep, in Volts
-
-    Raises:
-        ValueError: If ``current_a`` is not a 1-D array.
-
-    Example:
-        >>> import numpy as np
-        >>> cfg = BatterySimulationConfig(capacity_ah=60.0, soc_init=0.95)
-        >>> current = np.array([10.0, 10.0, 10.0])  # 10 A discharge
-        >>> soc, voltage = simulate_battery_states(current, cfg)
-        >>> print(f"SOC dropped from {soc[0]:.4f} to... (Coulomb counting)")
-        SOC dropped from 0.9500 to... (Coulomb counting)
-    """
-    if current_a.ndim != 1:
-        raise ValueError("current_a must be a 1D array")
-
-    soc = np.zeros_like(current_a, dtype=float)
-    voltage_v = np.zeros_like(current_a, dtype=float)
-
-    soc_prev = float(np.clip(config.soc_init, 0.0, 1.0))
-    for idx, cur in enumerate(current_a):
-        delta_soc = -(cur * config.dt_s) / (config.capacity_ah * SECONDS_PER_HOUR)
-        soc_now = float(np.clip(soc_prev + delta_soc, 0.0, 1.0))
-        ocv = config.ocv_min_v + (config.ocv_max_v - config.ocv_min_v) * soc_now
-        terminal_v = ocv - cur * config.internal_resistance_ohm
-
-        soc[idx] = soc_now
-        voltage_v[idx] = terminal_v
-        soc_prev = soc_now
-
-    return soc, voltage_v
-
-
-# ---------------------------------------------------------------------------
-# High-Level Dataset Builder
-# ---------------------------------------------------------------------------
-
-
-def build_dataset(
-    duration_s: int = 3600,
-    config: BatterySimulationConfig | None = None,
-    seed: int = 42,
-) -> pd.DataFrame:
-    """Generate a complete battery simulation dataset.
-
-    This is the main entry point for the simulation module. It combines
-    drive-cycle generation and battery state simulation into a single call
-    that returns a tidy DataFrame ready for analysis or ML.
-
-    Args:
-        duration_s: Total simulation duration in seconds.
-        config: Battery configuration. Uses default
-            :class:`BatterySimulationConfig` if ``None``.
-        seed: Random seed for reproducible drive cycles.
-
-    Returns:
-        A ``pandas.DataFrame`` with columns:
-
-        - ``time_s`` — timestamp in seconds
-        - ``current_a`` — battery current in Amperes
-        - ``voltage_v`` — terminal voltage in Volts
-        - ``soc`` — State of Charge [0, 1]
-
-    Example:
-        >>> frame = build_dataset(duration_s=600, seed=42)
-        >>> print(frame.shape)
-        (600, 4)
-        >>> print(frame.columns.tolist())
-        ['time_s', 'current_a', 'voltage_v', 'soc']
-    """
-    cfg = config or BatterySimulationConfig()
-    time_s, current_a = generate_drive_cycle(duration_s=duration_s, dt_s=cfg.dt_s, seed=seed)
-    soc, voltage_v = simulate_battery_states(current_a=current_a, config=cfg)
-
-    return pd.DataFrame(
-        {
-            "time_s": time_s,
-            "current_a": current_a,
-            "voltage_v": voltage_v,
-            "soc": soc,
-        }
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument(
+        "--duration-s",
+        type=int,
+        default=7200,
+        metavar="SECONDS",
+        help="Length of the simulated drive cycle in seconds (default: 7200 = 2 h).",
+    )
+    parser.add_argument(
+        "--dt-s",
+        type=float,
+        default=1.0,
+        metavar="DT",
+        help="Simulation time-step in seconds (default: 1.0).",
+    )
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=30,
+        metavar="W",
+        help="Number of past time-steps fed to the LSTM (default: 30).",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Training epochs (default: 5).",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        metavar="B",
+        help="Mini-batch size (default: 64).",
+    )
+    parser.add_argument(
+        "--units",
+        type=int,
+        default=64,
+        metavar="U",
+        help="Number of LSTM units (default: 64).",
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=1e-3,
+        metavar="LR",
+        help="Adam learning rate (default: 1e-3).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        metavar="S",
+        help="Random seed for reproducibility (default: 42).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("outputs"),
+        metavar="DIR",
+        help="Directory where the model and history are saved (default: outputs/).",
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    """Run the complete WIDSS SOC LSTM training pipeline.
+
+    Orchestrates drive-cycle generation, sequence building, model training,
+    and artifact saving. Prints progress with emoji-annotated status updates.
+
+    Returns:
+        Exit code: 0 on success, 1 if TensorFlow is not available.
+    """
+    args = parse_args()
+
+    print("⚡ WIDSS – SOC LSTM Training")
+    print("=" * 42)
+
+    # ------------------------------------------------------------------
+    # Pre-flight check: TensorFlow availability
+    # ------------------------------------------------------------------
+    if not tensorflow_available():
+        print(
+            "❌  TensorFlow is not installed.\n"
+            "    Install it with:  pip install tensorflow\n"
+            "    or:               pip install 'widss[tensorflow]'"
+        )
+        return 1
+
+    # ------------------------------------------------------------------
+    # Stage 1: Generate synthetic drive cycle
+    # ------------------------------------------------------------------
+    print(f"🔋 Generating {args.duration_s / 3600:.1f} h drive cycle  (seed={args.seed}) …")
+    cfg = BatterySimulationConfig(dt_s=args.dt_s)
+    frame = build_dataset(duration_s=args.duration_s, config=cfg, seed=args.seed)
+    soc_min = frame["soc"].min()
+    soc_max = frame["soc"].max()
+    print(f"   → {len(frame):,} time-steps  |  SOC range [{soc_min:.3f}, {soc_max:.3f}]")
+
+    # ------------------------------------------------------------------
+    # Stage 2: Build sliding-window sequences
+    # ------------------------------------------------------------------
+    print(f"🪟  Building sequences  (window={args.window_size}) …")
+    x, y = build_sequences(frame=frame, window_size=args.window_size)
+
+    split_idx = int(0.8 * len(x))
+    x_train, x_val = x[:split_idx], x[split_idx:]
+    y_train, y_val = y[:split_idx], y[split_idx:]
+    print(f"   → train: {len(x_train):,}  |  val: {len(x_val):,}  |  features: {x.shape[2]}")
+
+    # ------------------------------------------------------------------
+    # Stage 3: Build and train LSTM model
+    # ------------------------------------------------------------------
+    print(f"🧠 Building LSTM model  (units={args.units}, lr={args.learning_rate}) …")
+    model = build_lstm_soc_model(
+        window_size=x.shape[1],
+        feature_count=x.shape[2],
+        units=args.units,
+        learning_rate=args.learning_rate,
+    )
+
+    print(f"🚀 Training for {args.epochs} epoch(s)  (batch={args.batch_size}) …")
+    history = model.fit(
+        x_train,
+        y_train,
+        validation_data=(x_val, y_val),
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        verbose=1,
+    )
+
+    # ------------------------------------------------------------------
+    # Stage 4: Save artifacts
+    # ------------------------------------------------------------------
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    model_path = args.output_dir / "soc_lstm.keras"
+    history_path = args.output_dir / "history_loss.npy"
+    summary_path = args.output_dir / "training_summary.json"
+
+    model.save(model_path)
+    np.save(history_path, np.asarray(history.history.get("loss", []), dtype=float))
+
+    # Collect final metrics from training history
+    final_loss = history.history.get("loss", [float("nan")])[-1]
+    final_val_loss = history.history.get("val_loss", [float("nan")])[-1]
+    final_rmse = history.history.get("rmse", [float("nan")])[-1]
+    final_val_rmse = history.history.get("val_rmse", [float("nan")])[-1]
+
+    summary = {
+        "duration_s": args.duration_s,
+        "dt_s": args.dt_s,
+        "window_size": args.window_size,
+        "epochs": args.epochs,
+        "batch_size": args.batch_size,
+        "units": args.units,
+        "learning_rate": args.learning_rate,
+        "train_samples": len(x_train),
+        "val_samples": len(x_val),
+        "final_loss": float(final_loss),
+        "final_val_loss": float(final_val_loss),
+        "final_rmse": float(final_rmse),
+        "final_val_rmse": float(final_val_rmse),
+    }
+    summary_path.write_text(f"{json.dumps(summary, indent=2)}\n", encoding="utf-8")
+
+    # ------------------------------------------------------------------
+    # Summary output
+    # ------------------------------------------------------------------
+    print()
+    print("✅ Done!")
+    print(f"   Model   → {model_path.resolve()}")
+    print(f"   History  → {history_path.resolve()}")
+    print(f"   Summary  → {summary_path.resolve()}")
+    print()
+    print("   📊 Final Metrics:")
+    print(f"      Train Loss : {final_loss:.6f}")
+    print(f"      Val Loss   : {final_val_loss:.6f}")
+    print(f"      Train RMSE : {final_rmse:.6f}")
+    print(f"      Val RMSE   : {final_val_rmse:.6f}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
