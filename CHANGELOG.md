@@ -11,23 +11,66 @@ This project follows [Semantic Versioning](https://semver.org/) and the
 
 ### Added
 
-- Tunable CLI parameters `--units` and `--learning-rate` in `scripts/train_soc_lstm.py`
-  for simplified model fine-tuning.
-- `training_summary.json` artifact output with final train/validation loss,
-  RMSE, and complete run configuration for presentation reporting.
-- Dedicated **Results** section in README with benchmark snapshot and
-  reproducible run-metrics example.
-- `SECURITY.md` — vulnerability reporting policy.
-- `CODE_OF_CONDUCT.md` — Contributor Covenant v2.1.
-- `.github/PULL_REQUEST_TEMPLATE.md` — standardized PR checklist.
+- (Nothing yet for the next release)
+
+---
+
+## [0.2.0] — Phase 2: SOH Pipeline
+
+> Implements State-of-Health (SOH) prediction via battery cycle-aging simulation
+> and degradation modelling.
+
+### Added
+
+#### Degradation Module (`widss.degradation`) — NEW
+
+- `BatteryDegradationConfig` — Configuration for capacity fade and resistance growth
+- `build_degradation_profile()` — Simulate battery aging over charge cycles with
+  logarithmic capacity fade and square-root resistance growth models
+- `compute_soh()` — Calculate State of Health as capacity retention percentage
+- `detect_charge_cycles()` — Identify individual cycles from current timeseries
+- `extract_cycle_features()` — Extract aggregate statistics from each cycle
+  (avg/max current, avg voltage, SOC swing, energy throughput)
+
+#### Dataset Extensions (`widss.dataset`)
+
+- `build_cycle_sequences()` — Build sliding-window sequences from cycle-level
+  aggregate data for SOH LSTM training
+- Support for cycle-level feature engineering in addition to timestep-level data
+
+#### Model Extensions (`widss.model`)
+
+- `build_lstm_soh_model()` — LSTM model builder for SOH prediction with sigmoid
+  activation constrained to [0, 1] SOH range
+- Parallel architecture to `build_lstm_soc_model()` with tunable hidden units
+
+#### Training Script (`scripts/train_soh_lstm.py`) — NEW
+
+- End-to-end SOH training pipeline orchestrating:
+  - Battery aging simulation over configurable cycles
+  - Cycle-level feature extraction from synthetic drive profiles
+  - LSTM model training with configurable hyperparameters
+  - Artifact saving (model, loss history, summary JSON)
+- CLI parameters: `--cycles`, `--duration-per-cycle-s`, `--window-size`,
+  `--capacity-fade-rate`, `--resistance-growth-rate`, etc.
+
+#### Tests (`tests/test_degradation.py`) — NEW
+
+- Comprehensive test suite for degradation module (40+ assertions)
+- Tests for capacity fade, resistance growth, SOH computation
+- Cycle detection and feature extraction validation
+- Tests for `build_cycle_sequences()` with various configurations
+
+#### Documentation Updates
+
+- Updated `__init__.py` module docstring with degradation pipeline
+- Extended README with SOH section, cycle-level data handling, Phase 2 example
+- Package version bumped to 0.2.0
 
 ### Changed
 
-- README overhauled to presentation-grade with visual pipeline diagram,
-  Mermaid roadmap, collapsible sections, and refined formatting.
-- CONTRIBUTING.md rewritten with quick-start guide, visual tables, and
-  clearer contributor workflow.
-- CHANGELOG.md reformatted with proper Added/Changed/Fixed categorization.
+- Updated package version from 0.1.0 to 0.2.0
+- Enhanced module architecture diagram in docstrings to include degradation stage
 
 ---
 
@@ -114,5 +157,6 @@ This project follows [Semantic Versioning](https://semver.org/) and the
 
 ---
 
-[Unreleased]: https://github.com/pritam-09-ops/WIDSS/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/pritam-09-ops/WIDSS/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/pritam-09-ops/WIDSS/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/pritam-09-ops/WIDSS/releases/tag/v0.1.0

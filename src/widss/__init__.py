@@ -1,34 +1,38 @@
 """WIDSS – AI-driven battery state estimation framework.
 
 WIDSS (**W**indowed **I**ntelligent **D**rive-cycle **S**tate e**S**timation)
-provides a modular, three-stage pipeline for simulating, training, and
-evaluating machine-learning models for battery **State-of-Charge (SOC)** and
+provides a modular pipeline for simulating, training, and evaluating
+machine-learning models for battery **State-of-Charge (SOC)** and
 **State-of-Health (SOH)** estimation under realistic EV drive cycles.
 
 Architecture
 ------------
-The framework is organized into four independent modules that can be used
+The framework is organized into five independent modules that can be used
 individually or composed into a full pipeline:
 
 .. code-block:: text
 
-    Battery Config → simulation → dataset → model → evaluation
-                    (physics)   (windows)  (LSTM)   (metrics)
+    Battery Config → simulation → degradation → dataset → model → evaluation
+                    (physics)    (aging)      (windows)  (LSTM)   (metrics)
 
 Modules
 -------
 simulation
     Synthetic EV drive-cycle generator and physics-based battery state
     simulator using an Equivalent Circuit Model (ECM).
+degradation
+    Battery aging simulation: capacity fade and resistance growth models
+    for State-of-Health (SOH) prediction.
 dataset
     Sliding-window time-series builder that converts raw simulation output
-    into supervised learning sequences ``(X, y)``.
+    into supervised learning sequences ``(X, y)``. Supports both timestep-level
+    (SOC) and cycle-level (SOH) data.
 model
-    LSTM model construction helpers for SOC prediction. Requires TensorFlow
-    (soft dependency — the rest of the package works without it).
+    LSTM model construction helpers for SOC and SOH prediction. Requires
+    TensorFlow (soft dependency — the rest of the package works without it).
 evaluation
     Standard regression metrics: RMSE, MAE, MAPE. Designed for comparing
-    predicted vs. actual SOC values.
+    predicted vs. actual SOC and SOH values.
 
 Quick Start
 -----------
@@ -52,7 +56,8 @@ Generate battery data, build ML sequences, and evaluate — all in a few lines:
 See Also
 --------
 - README.md : Full documentation with architecture diagrams and examples.
-- scripts/train_soc_lstm.py : End-to-end training CLI.
+- scripts/train_soc_lstm.py : End-to-end SOC training CLI.
+- scripts/train_soh_lstm.py : End-to-end SOH training CLI.
 - CONTRIBUTING.md : How to contribute to the project.
 
 License
@@ -62,9 +67,10 @@ MIT License. See LICENSE for details.
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "__version__",
+    "degradation",
     "evaluation",
     "dataset",
     "model",
