@@ -69,7 +69,7 @@ The framework is fully modular — use only the physics simulator, plug in your 
 | LSTM neural network (TensorFlow / Keras) | ✅ Ready |
 | Standard evaluation metrics (RMSE · MAE · MAPE) | ✅ Ready |
 | Multi-Python CI/CD (3.10 · 3.11 · 3.12) | ✅ Ready |
-| Battery degradation prediction (SOH) | 🚧 In Progress |
+| Battery degradation prediction (SOH) — capacity fade & resistance growth | ✅ Ready |
 | PyBaMM electrochemistry integration | 📋 Planned |
 | Transformer & physics-informed baselines | 📋 Planned |
 
@@ -184,6 +184,17 @@ python scripts/train_soc_lstm.py \
 python -m pytest
 ```
 
+### Phase 2: SOH Prediction ⚡
+
+Train a model to predict battery State-of-Health from cycle degradation:
+
+```bash
+python scripts/train_soh_lstm.py \
+    --cycles 100 --window-size 10 --epochs 5 \
+    --capacity-fade-rate 0.02 --resistance-growth-rate 0.01 \
+    --output-dir runs/soh_run
+```
+
 <br>
 
 ---
@@ -280,20 +291,93 @@ x, y = build_sequences(
 
 ---
 
-### `widss.model`
+### `widss.degradation` — NEW (Phase 2)
 
-> LSTM architecture for SOC prediction (requires TensorFlow).
+> Battery aging simulation and State-of-Health label generation.
 
 ```python
-from widss.model import build_lstm_soc_model, tensorflow_available
+from widss.degradation import (
+    BatteryDegradationConfig,
+    build_degradation_profile,
+    compute_soh,
+    extract_cycle_features,
+)
+
+# Simulate capacity fade and resistance growth over 500 cycles
+cfg = BatteryDegradationConfig(
+    capacity_init_ah=60.0,
+    capacity_fade_rate=0.02,
+    resistance_growth_rate=0.01
+)
+
+capacity_ah, resistance_ohm = build_degradation_profile(cycles=500, config=cfg)
+
+# Compute SOH (State of Health) as capacity retention
+soh = compute_soh(capacity_current_ah=48.0, capacity_init_ah=60.0)
+print(f"SOH: {100 * soh:.1f}%")  # SOH: 80.0%
+
+# Extract features from a single cycle
+avg_current = 15.0
+max_current = 50.0
+avg_voltage = 4.0
+soc_delta = 0.5
+
+features = extract_cycle_features(
+    cycle_current=np.array([...]),
+    cycle_voltage=np.array([...]),
+    cycle_soc=np.array([...])
+)
+# Returns: {'avg_current_a', 'max_current_a', 'avg_voltage_v', 'soc_delta', 'energy_wh'}
+```
+
+---
+
+### `widss.dataset` (Extended for SOH)
+
+> Cycle-level sliding-window builder for SOH prediction.
+
+```python
+from widss.dataset import build_cycle_sequences
+import pandas as pd
+
+# Cycle-level data with aggregate features
+cycles_df = pd.DataFrame({
+    'cycle_num': np.arange(100),
+    'avg_current_a': np.random.uniform(5, 20, 100),
+    'max_current_a': np.random.uniform(20, 80, 100),
+    'avg_voltage_v': np.linspace(4.2, 3.5, 100),
+    'soc_delta': np.random.uniform(0.5, 1.0, 100),
+    'soh': np.linspace(1.0, 0.8, 100),
+})
+
+x, y = build_cycle_sequences(cycles_df, window_size=10)
+# x shape: (num_windows, 10, 5) — cycle features over 10-cycle windows
+# y shape: (num_windows,)        — target SOH values
+```
+
+---
+
+### `widss.model` (Extended for SOH)
+
+> LSTM architectures for SOC and SOH prediction (requires TensorFlow).
+
+```python
+from widss.model import build_lstm_soc_model, build_lstm_soh_model, tensorflow_available
 
 if tensorflow_available():
-    model = build_lstm_soc_model(
+    # SOC model (timestep-level)
+    soc_model = build_lstm_soc_model(
         window_size=30,
         feature_count=2,
         units=64
     )
-    model.summary()
+    
+    # SOH model (cycle-level)
+    soh_model = build_lstm_soh_model(
+        window_size=10,
+        feature_count=5,
+        units=32
+    )
 ```
 
 ---

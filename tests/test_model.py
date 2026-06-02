@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from widss.model import build_lstm_soc_model, tensorflow_available
+from widss.model import build_lstm_soc_model, build_lstm_soh_model, tensorflow_available
 
 # ---------------------------------------------------------------------------
 # Skip all tests gracefully when TensorFlow is not installed
@@ -63,3 +63,61 @@ def test_model_custom_learning_rate() -> None:
 def test_tensorflow_available_returns_bool() -> None:
     result = tensorflow_available()
     assert isinstance(result, bool)
+
+
+# ---------------------------------------------------------------------------
+# build_lstm_soh_model
+# ---------------------------------------------------------------------------
+
+
+def test_soh_model_builds_without_error() -> None:
+    """Test that SOH model builds successfully."""
+    model = build_lstm_soh_model(window_size=10, feature_count=5)
+    assert model is not None
+
+
+def test_soh_model_output_shape() -> None:
+    """Test that SOH model output has correct shape."""
+    import numpy as np
+
+    model = build_lstm_soh_model(window_size=10, feature_count=5)
+    dummy = np.zeros((4, 10, 5), dtype=float)
+    preds = model.predict(dummy, verbose=0)
+    assert preds.shape == (4, 1)
+
+
+def test_soh_model_output_in_unit_interval() -> None:
+    """Test that SOH predictions are constrained to [0, 1]."""
+    import numpy as np
+
+    model = build_lstm_soh_model(window_size=8, feature_count=4)
+    dummy = np.random.default_rng(1).standard_normal((16, 8, 4))
+    preds = model.predict(dummy, verbose=0)
+    assert (preds >= 0.0).all()
+    assert (preds <= 1.0).all()
+
+
+def test_soh_model_custom_units() -> None:
+    """Test SOH model with custom unit count."""
+    model = build_lstm_soh_model(window_size=12, feature_count=6, units=64)
+    assert model is not None
+
+
+def test_soh_model_custom_learning_rate() -> None:
+    """Test SOH model with custom learning rate."""
+    import tensorflow as tf
+
+    model = build_lstm_soh_model(window_size=10, feature_count=5, learning_rate=5e-4)
+    opt = model.optimizer
+    lr = float(tf.keras.backend.get_value(opt.learning_rate))
+    assert lr == pytest.approx(5e-4, rel=1e-4)
+
+
+def test_soh_vs_soc_model_differences() -> None:
+    """Test that SOH and SOC models are distinct."""
+    soc_model = build_lstm_soc_model(window_size=20, feature_count=2, units=64)
+    soh_model = build_lstm_soh_model(window_size=10, feature_count=5, units=32)
+
+    # Different architectures
+    assert soc_model.count_params() != soh_model.count_params()
+    assert len(soc_model.layers) == len(soh_model.layers)  # Same structure
