@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from widss.dataset import build_sequences, build_cycle_sequences
+from widss.dataset import build_cycle_sequences, build_sequences
 from widss.simulation import build_dataset
 
 
